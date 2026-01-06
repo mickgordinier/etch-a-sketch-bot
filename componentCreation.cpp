@@ -2,6 +2,8 @@
 #include <vector>
 #include <random>
 #include <queue>
+#include <string>
+#include <iomanip> // Required for setw
 
 template <typename T>
 void
@@ -13,7 +15,7 @@ print2DVector(
 
     for (int row = 0; row < image_rows; ++row) {
         for (int col = 0; col < image_cols; ++col) {
-            std::cout << vec[row][col] << " ";
+            std::cout << std::setw(3) << static_cast<int>(vec[row][col]) << " ";
         }
         std::cout << "\n";
     }
@@ -101,7 +103,7 @@ generateRandomImage(
 
 
 int 
-main() 
+main(int argc, char **argv) 
 {
     // const std::vector<std::vector<uint8_t>> binary_image = {
     //     {1, 0, 0, 0, 0},
@@ -110,8 +112,13 @@ main()
     //     {0, 1, 1, 1, 1}
     // };
 
-    int image_rows = 10000;
-    int image_cols = 10000;
+    if (argc != 3) {
+        std::cout << "Required ./a.out {image_rows} {image_cols}\n";
+        return 1;
+    }
+
+    int image_rows = std::stoi(argv[1]);
+    int image_cols = std::stoi(argv[2]);
 
     std::vector<std::vector<uint8_t>> binary_image(
         image_rows, std::vector<uint8_t>(image_cols, 0));
