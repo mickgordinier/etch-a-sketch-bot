@@ -8,8 +8,11 @@
 template <typename T>
 void
 print2DVector(
+    const std::string &image_name,
     const std::vector<std::vector<T>> &vec
 ) {
+    std::cout << image_name << "\n\n";
+    
     int image_rows = vec.size();
     int image_cols = vec[0].size();
 
@@ -22,6 +25,7 @@ print2DVector(
     std::cout << "\n";
 }
 
+
 bool inline
 checkNode(
     const std::vector<std::vector<uint8_t>> &binary_image, 
@@ -33,6 +37,7 @@ checkNode(
     if (component_tracker[nodeRow][nodeCol]) return false;
     return true;
 }
+
 
 void
 generateNewComponent(
@@ -85,6 +90,7 @@ getComponents(
     }
 }
 
+
 void
 generateRandomImage(
     std::vector<std::vector<uint8_t>> &binary_image,
@@ -98,6 +104,22 @@ generateRandomImage(
         for (int j = 0; j < image_cols; ++j) {
             binary_image[i][j] = dist(gen);
         }
+    }
+}
+
+
+void
+placeBorderAroundImage(
+    std::vector<std::vector<uint8_t>> &binary_image
+) {
+    for (int col = 0; col < binary_image[0].size(); ++col) {
+        binary_image[0][col] = 1;
+        binary_image[binary_image.size()-1][col] = 1;
+    }
+
+    for (int row = 1; row < binary_image.size()-1; ++row) {
+        binary_image[row][0] = 1;
+        binary_image[row][binary_image[0].size()-1] = 1;
     }
 }
 
@@ -123,18 +145,18 @@ main(int argc, char **argv)
     std::vector<std::vector<uint8_t>> binary_image(
         image_rows, std::vector<uint8_t>(image_cols, 0));
 
-    generateRandomImage(binary_image, image_rows, image_cols);
-
-    std::cout << "ORIGINAL IMAGE\n\n";
-    print2DVector(binary_image);
-
     std::vector<std::vector<int>> component_tracker(
         image_rows, std::vector<int>(image_cols, 0));
 
+    generateRandomImage(binary_image, image_rows, image_cols);
+
+    placeBorderAroundImage(binary_image);
+
     getComponents(binary_image, component_tracker);
 
-    std::cout << "COMPONENT TRACKER\n\n";
-    print2DVector(component_tracker);
+    print2DVector("ORIGINAL IMAGE", binary_image);
+
+    print2DVector("COMPONENT TRACKER", component_tracker);
 
     return 0;
 }
