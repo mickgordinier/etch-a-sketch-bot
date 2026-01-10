@@ -6,6 +6,12 @@
 #include <iomanip>
 #include <chrono>
 
+#define STB_IMAGE_IMPLEMENTATION
+#include "./stb/stb_image.h"
+
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include "./stb/stb_image_write.h"
+
 const int adjacentNodes[4][2] = {{-1, 0}, {1, 0}, {0, -1}, {0, 1}};
 
 uint8_t EXTRA_PRINT = 1;
@@ -42,15 +48,15 @@ void
 print2DVector(
     const std::string &image_name,
     const std::vector<T> &vec,
-    int image_rows, int image_cols
+    int height, int width
 ) {
     std::cout << "-----------------------------------------------------------------------------------------------------------\n";
     std::cout << image_name << "\n";
     std::cout << "-----------------------------------------------------------------------------------------------------------\n";
 
-    for (int row = 0; row < image_rows; ++row) {
-        for (int col = 0; col < image_cols; ++col) {
-            std::cout << std::setw(3) << static_cast<int>(vec[row*image_cols + col]) << " ";
+    for (int row = 0; row < height; ++row) {
+        for (int col = 0; col < width; ++col) {
+            std::cout << std::setw(3) << static_cast<int>(vec[row*width + col]) << " ";
         }
         std::cout << "\n";
     }
@@ -64,11 +70,11 @@ checkNode(
     const std::vector<uint8_t> &binary_image, 
     const std::vector<uint8_t> &component_tracker,
     int nodeRow, int nodeCol,
-    int image_rows, int image_cols
+    int height, int width
 ) {
-    if ((nodeRow < 0) || (nodeCol < 0) || (nodeRow >= image_rows) || (nodeCol >= image_cols)) return false;;
-    if (!binary_image[(nodeRow*image_cols) + nodeCol]) return false;
-    if (component_tracker[(nodeRow*image_cols) + nodeCol]) return false;
+    if ((nodeRow < 0) || (nodeCol < 0) || (nodeRow >= height) || (nodeCol >= width)) return false;;
+    if (!binary_image[(nodeRow*width) + nodeCol]) return false;
+    if (component_tracker[(nodeRow*width) + nodeCol]) return false;
     return true;
 }
 
@@ -76,17 +82,17 @@ checkNode(
 void
 generateRandomImage(
     std::vector<uint8_t> &binary_image,
-    int image_rows, int image_cols
+    int height, int width
 ) {
     ScopedTimer timer("Generate Random Image");
 
     std::random_device rd;
     std::mt19937 gen(rd());
-    std::bernoulli_distribution dist(0.2);  // density of 1's
+    std::bernoulli_distribution dist(0.9);  // density of 1's
 
-    for (int i = 0; i < image_rows; ++i) {
-        for (int j = 0; j < image_cols; ++j) {
-            binary_image[i*image_cols + j] = dist(gen);
+    for (int i = 0; i < height; ++i) {
+        for (int j = 0; j < width; ++j) {
+            binary_image[i*width + j] = dist(gen);
         }
     }
 }
@@ -95,18 +101,18 @@ generateRandomImage(
 void
 placeBorderAroundImage(
     std::vector<uint8_t> &binary_image,
-    int image_rows, int image_cols
+    int height, int width
 ) {
     ScopedTimer timer("Place Border Around Image");
 
-    for (int col = 0; col < image_cols; ++col) {
+    for (int col = 0; col < width; ++col) {
         binary_image[col] = 1;
-        binary_image[((image_rows-1)*image_cols) + col] = 1;
+        binary_image[((height-1)*width) + col] = 1;
     }
 
-    for (int row = 1; row < image_rows-1; ++row) {
-        binary_image[row*image_cols] = 1;
-        binary_image[(row*image_cols) + (image_cols-1)] = 1;
+    for (int row = 1; row < height-1; ++row) {
+        binary_image[row*width] = 1;
+        binary_image[(row*width) + (width-1)] = 1;
     }
 }
 
@@ -117,11 +123,11 @@ addComponentToQueue(
     std::vector<uint8_t> &tempTracker,
     std::queue<QueueNode> &globalSavedQueue,
     int start_row, int start_col,
-    int image_rows, int image_cols
+    int height, int width
 ) {
     globalSavedQueue.push({{start_row, start_col}, {0, 0}});
-    fill_tracker[(start_row*image_cols) + start_col] = 1;
-    tempTracker[(start_row*image_cols) + start_col] = 1;
+    fill_tracker[(start_row*width) + start_col] = 1;
+    tempTracker[(start_row*width) + start_col] = 1;
 
     std::queue<std::pair<int, int>> nodesToCheck;
     nodesToCheck.push({start_row, start_col});
@@ -140,11 +146,11 @@ addComponentToQueue(
             int adjacentRow = nodeRow + adjacentNodes[neighbor][0];
             int adjacentCol = nodeCol + adjacentNodes[neighbor][1];
 
-            if (!checkNode(binary_image, fill_tracker, adjacentRow, adjacentCol, image_rows, image_cols)) 
+            if (!checkNode(binary_image, fill_tracker, adjacentRow, adjacentCol, height, width)) 
                 continue;
 
-            fill_tracker[(adjacentRow*image_cols) + adjacentCol] = 1;
-            tempTracker[(adjacentRow*image_cols) + adjacentCol] = 1;
+            fill_tracker[(adjacentRow*width) + adjacentCol] = 1;
+            tempTracker[(adjacentRow*width) + adjacentCol] = 1;
             nodesToCheck.push({adjacentRow, adjacentCol});
             globalSavedQueue.push({{adjacentRow, adjacentCol}, {0, 0}});
         }
@@ -159,7 +165,7 @@ addPathToQueue(
     std::queue<QueueNode> &globalSavedQueue,
     int islandRow, int islandCol,
     int originalRow, int originalCol,
-    int image_rows, int image_cols
+    int height, int width
 ) {
     // Making a simple shortest path from original node to island node
     // Using Bresenham’s Line Generation Algorithm
@@ -181,11 +187,11 @@ addPathToQueue(
         for (int rowToAdd = std::min(startRow, endRow); rowToAdd < std::max(startRow, endRow); ++rowToAdd) {
             
             // Need to make sure not adding any duplicate nodes
-            if (fill_tracker[(rowToAdd*image_cols) + startCol]) continue;
+            if (fill_tracker[(rowToAdd*width) + startCol]) continue;
 
-            binary_image[(rowToAdd*image_cols) + startCol] = 1;
-            fill_tracker[(rowToAdd*image_cols) + startCol] = 1;
-            tempTracker[(rowToAdd*image_cols) + startCol] = 1;
+            binary_image[(rowToAdd*width) + startCol] = 1;
+            fill_tracker[(rowToAdd*width) + startCol] = 1;
+            tempTracker[(rowToAdd*width) + startCol] = 1;
             globalSavedQueue.push({{rowToAdd, startCol}, {0, 0}});
         }
         return;
@@ -201,11 +207,11 @@ addPathToQueue(
         for (int rowToAdd = std::min(currentRow, trueRow); rowToAdd <= std::max(currentRow, trueRow); ++rowToAdd) {
             
             // Need to make sure not adding any duplicate nodes
-            if (fill_tracker[(rowToAdd*image_cols) + col]) continue;
+            if (fill_tracker[(rowToAdd*width) + col]) continue;
 
-            binary_image[(rowToAdd*image_cols) + col] = 1;
-            fill_tracker[(rowToAdd*image_cols) + col] = 1;
-            tempTracker[(rowToAdd*image_cols) + startCol] = 1;
+            binary_image[(rowToAdd*width) + col] = 1;
+            fill_tracker[(rowToAdd*width) + col] = 1;
+            tempTracker[(rowToAdd*width) + startCol] = 1;
             globalSavedQueue.push({{rowToAdd, col}, {0, 0}});
         }
 
@@ -217,18 +223,20 @@ addPathToQueue(
 std::vector<uint8_t>
 connectAllComponents(
     const std::vector<uint8_t> &original_binary_image,
-    std::vector<uint8_t> &fill_tracker,
-    int image_rows, int image_cols
+    int height, int width
 ) {
+
+    std::vector<uint8_t> fill_tracker(height * width);
+
     std::queue<QueueNode> globalSavedQueue;
 
     std::vector<uint8_t> final_binary_image = original_binary_image;
 
     // Adding the entire component found at location (0, 0) to the globalSavedQueue
     // INEFFICIENT: USING TEMPORARY FILL_TRACKER HERE. NEED TO REMOVE
-    addComponentToQueue(original_binary_image, fill_tracker, fill_tracker, globalSavedQueue, 0, 0, image_rows, image_cols);
+    addComponentToQueue(original_binary_image, fill_tracker, fill_tracker, globalSavedQueue, 0, 0, height, width);
 
-    if (EXTRA_PRINT) print2DVector("Fill Tracker Adding Border Component", fill_tracker, image_rows, image_cols);
+    if (EXTRA_PRINT) print2DVector("Fill Tracker Adding Border Component", fill_tracker, height, width);
     
     // Iterative process
     while(true) {
@@ -260,22 +268,22 @@ connectAllComponents(
                 int adjacentRow = currentRow + adjacentNodes[neighbor][0];
                 int adjacentCol = currentCol + adjacentNodes[neighbor][1];
 
-                if ((adjacentRow < 0) || (adjacentCol < 0) || (adjacentRow >= image_rows) || (adjacentCol >= image_cols)) continue;
-                if (tempTracker[(adjacentRow*image_cols) + adjacentCol]) continue;
+                if ((adjacentRow < 0) || (adjacentCol < 0) || (adjacentRow >= height) || (adjacentCol >= width)) continue;
+                if (tempTracker[(adjacentRow*width) + adjacentCol]) continue;
             
                 // New island component found
-                if (original_binary_image[(adjacentRow*image_cols) + adjacentCol]) {
+                if (original_binary_image[(adjacentRow*width) + adjacentCol]) {
 
                     if (EXTRA_PRINT) {
-                        print2DVector("Round Tracked Locations Before Finding New Component", tempTracker, image_rows, image_cols);
+                        print2DVector("Round Tracked Locations Before Finding New Component", tempTracker, height, width);
                         std::cout << "New island component found at: (" << adjacentRow << ", " << adjacentCol << ")\n\n";
                     }
 
                     // Add the entire component found at given location to the globalSavedQueue
-                    addComponentToQueue(original_binary_image, fill_tracker, tempTracker, globalSavedQueue, adjacentRow, adjacentCol, image_rows, image_cols);
+                    addComponentToQueue(original_binary_image, fill_tracker, tempTracker, globalSavedQueue, adjacentRow, adjacentCol, height, width);
                     
                     if (EXTRA_PRINT) {
-                        print2DVector("Fill Tracker Adding New Component", fill_tracker, image_rows, image_cols);
+                        print2DVector("Fill Tracker Adding New Component", fill_tracker, height, width);
                     }
                     
                     // Add a path the connects the island component
@@ -284,15 +292,15 @@ connectAllComponents(
                         if (EXTRA_PRINT) std::cout << "Starting location at: (" << currentRow << ", " << currentCol << ")\n\n";
                         addPathToQueue(final_binary_image, fill_tracker, tempTracker, globalSavedQueue,
                                         adjacentRow, adjacentCol, currentRow, currentCol,
-                                        image_rows, image_cols);
+                                        height, width);
                     } else {
                         if (EXTRA_PRINT) std::cout << "Starting location at: (" << originalRow << ", " << originalCol << ")\n\n";
                         addPathToQueue(final_binary_image, fill_tracker, tempTracker, globalSavedQueue,
                                         adjacentRow, adjacentCol, originalRow, originalCol,
-                                        image_rows, image_cols);
+                                        height, width);
                     }
 
-                    if (EXTRA_PRINT) print2DVector("Fill Tracker Adding New Component+Path", fill_tracker, image_rows, image_cols);
+                    if (EXTRA_PRINT) print2DVector("Fill Tracker Adding New Component+Path", fill_tracker, height, width);
 
                     new_component_found = 1;
 
@@ -306,7 +314,7 @@ connectAllComponents(
                         }
                     }
                         
-                    tempTracker[(adjacentRow*image_cols) + adjacentCol] = 1;
+                    tempTracker[(adjacentRow*width) + adjacentCol] = 1;
                 }
             }
         }
@@ -322,49 +330,83 @@ main(int argc, char **argv)
 {
     ScopedTimer program_timer("TOTAL PROGRAM");
 
-    if (argc != 4) {
-        std::cout << "Required ./a.out {image_rows} {image_cols} {extra_print}\n";
+    int height, width;
+    std::string output_filepath;
+
+    std::vector<uint8_t> binary_image;
+
+    // {executable}.out {height} {width} {output_filepath} {EXTRA_PRINT}
+    if (argc == 5) {
+
+        height = std::stoi(argv[1]);
+        width = std::stoi(argv[2]);
+        output_filepath = argv[3];
+        EXTRA_PRINT = std::stoi(argv[4]);
+
+        // std::vector<uint8_t> binary_image = {
+        // 1,   1,   1,   1,   1,   1,   1,   1,   1,   1, 
+        // 1,   0,   0,   1,   0,   0,   0,   0,   0,   1, 
+        // 1,   0,   0,   0,   0,   0,   0,   0,   0,   1, 
+        // 1,   1,   0,   0,   0,   1,   0,   0,   0,   1, 
+        // 1,   0,   0,   0,   0,   0,   0,   0,   0,   1, 
+        // 1,   0,   0,   1,   0,   0,   0,   0,   0,   1, 
+        // 1,   0,   1,   0,   0,   0,   0,   0,   0,   1, 
+        // 1,   1,   0,   0,   1,   0,   0,   0,   0,   1, 
+        // 1,   0,   0,   0,   0,   0,   0,   0,   0,   1, 
+        // 1,   1,   1,   1,   1,   1,   1,   1,   1,   1
+        // };
+        
+        binary_image.resize(height * width);
+        generateRandomImage(binary_image, height, width);
+
+    } 
+    // {executable}.out {input_filepath} {output_filepath} {EXTRA_PRINT}
+    else if (argc == 4) {
+
+        int channels;
+        const char * input_filepath = argv[1];
+        output_filepath = argv[2];
+        EXTRA_PRINT = std::stoi(argv[3]);
+
+        unsigned char* data = stbi_load(input_filepath, &width, &height, &channels, 1);
+        if (!data) {
+            std::cerr << "Failed to load image\n";
+            return 1;
+        }
+
+        binary_image.resize(height * width);
+
+        for (int y = 0; y < height; ++y) {
+            for (int x = 0; x < width; ++x) {
+                binary_image[y * width + x] = data[y * width + x] > 128 ? 0 : 1;
+            }
+        }
+
+        stbi_image_free(data);
+
+    } else {
+        std::cout << "Wrong arguments provided\n";
         return 1;
     }
 
-    int image_rows = std::stoi(argv[1]);
-    int image_cols = std::stoi(argv[2]);
-
-    EXTRA_PRINT = std::stoi(argv[3]);
-
-    std::vector<uint8_t> binary_image = {
-        1,   1,   1,   1,   1,   1,   1,   1,   1,   1, 
-        1,   1,   0,   0,   0,   1,   0,   0,   0,   1, 
-        1,   0,   1,   0,   0,   0,   0,   0,   0,   1, 
-        1,   0,   0,   0,   0,   1,   0,   0,   1,   1, 
-        1,   0,   0,   0,   0,   0,   0,   1,   1,   1, 
-        1,   0,   0,   0,   0,   0,   1,   0,   1,   1, 
-        1,   0,   0,   0,   0,   0,   0,   0,   1,   1, 
-        1,   0,   0,   0,   0,   0,   0,   0,   0,   1, 
-        1,   0,   0,   0,   0,   0,   0,   1,   0,   1, 
-        1,   1,   1,   1,   1,   1,   1,   1,   1,   1
-    };
-    
-    // std::vector<uint8_t> binary_image(image_rows * image_cols);
-    // generateRandomImage(binary_image, image_rows, image_cols);
-
-    placeBorderAroundImage(binary_image, image_rows, image_cols);
+    placeBorderAroundImage(binary_image, height, width);
     // binary_image[0] = 1;
     
-    // std::vector<uint32_t> component_tracker(image_rows * image_cols);
-    // getComponents(binary_image, component_tracker, image_rows, image_cols);
+    print2DVector("ORIGINAL IMAGE", binary_image, height, width);
     
-    print2DVector("ORIGINAL IMAGE", binary_image, image_rows, image_cols);
-    
-    std::vector<uint8_t> fill_tracker(image_rows * image_cols);
-    std::vector<uint8_t> final_binary_image = connectAllComponents(binary_image, fill_tracker, image_rows, image_cols);
+    std::vector<uint8_t> final_binary_image = connectAllComponents(binary_image, height, width);
 
-    print2DVector("FINAL IMAGE", final_binary_image, image_rows, image_cols);
+    print2DVector("FINAL IMAGE", final_binary_image, height, width);
 
+    for (int i = 0; i < height * width; ++i) {
+        final_binary_image[i] = (final_binary_image[i]) ? 0 : 255;
+    }
 
-    // findComponentNearestNeighbor()
-
-    // print2DVector("COMPONENT TRACKER", component_tracker, image_rows, image_cols);
+    // Writing to output filepath
+    if (!stbi_write_bmp(output_filepath.c_str(), width, height, 1, final_binary_image.data())) {
+        std::cerr << "Failed to write BMP\n";
+        return 1;
+    }
 
     return 0;
 }
