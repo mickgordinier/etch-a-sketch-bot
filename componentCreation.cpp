@@ -86,20 +86,6 @@ checkNode(
 }
 
 
-// bool inline
-// checkNode(
-//     const std::vector<uint8_t> &binary_image, 
-//     const std::vector<uint8_t> &component_tracker,
-//     int nodeRow, int nodeCol,
-//     int height, int width
-// ) {
-//     if ((nodeRow < 0) || (nodeCol < 0) || (nodeRow >= height) || (nodeCol >= width)) return false;;
-//     if (!binary_image[(nodeRow*width) + nodeCol]) return false;
-//     if (component_tracker[(nodeRow*width) + nodeCol]) return false;
-//     return true;
-// }
-
-
 void
 generateRandomImage(
     std::vector<uint8_t> &binary_image,
@@ -178,49 +164,6 @@ addComponentToQueue(
 }
 
 
-// void
-// addComponentToQueue(
-//     const std::vector<uint8_t> &binary_image,
-//     std::vector<uint8_t> &fill_tracker,
-//     std::vector<uint8_t> &tempTracker,
-//     std::queue<QueueNode> &globalSavedQueue,
-//     int start_row, int start_col,
-//     int height, int width
-// ) {
-//     globalSavedQueue.push({{start_row, start_col}, {0, 0}});
-//     fill_tracker[(start_row*width) + start_col] = 1;
-//     tempTracker[(start_row*width) + start_col] = 1;
-
-//     std::queue<std::pair<int, int>> nodesToCheck;
-//     nodesToCheck.push({start_row, start_col});
-
-//     while(!nodesToCheck.empty()) {
-//         std::pair<int, int> currNode = nodesToCheck.front();
-//         nodesToCheck.pop();
-
-//         int nodeRow = currNode.first;
-//         int nodeCol = currNode.second;
-
-//         // As stepper motors only moves one at a time, it is not feasible to go diagonal.
-//         // Thus, a valid neighbor must be directly adjacent, not diagonal. 
-//         for (int neighbor = 0; neighbor < 4; ++neighbor) {
-            
-//             int adjacentRow = nodeRow + adjacentNodes[neighbor][0];
-//             int adjacentCol = nodeCol + adjacentNodes[neighbor][1];
-
-//             if (!checkNode(binary_image, fill_tracker, adjacentRow, adjacentCol, height, width)) 
-//                 continue;
-
-//             fill_tracker[(adjacentRow*width) + adjacentCol] = 1;
-//             tempTracker[(adjacentRow*width) + adjacentCol] = 1;
-//             nodesToCheck.push({adjacentRow, adjacentCol});
-//             globalSavedQueue.push({{adjacentRow, adjacentCol}, {0, 0}});
-//         }
-//     }
-// }
-
-
-
 void
 addPathToQueue(
     std::vector<uint8_t> &binary_image,
@@ -279,69 +222,6 @@ addPathToQueue(
 }
 
 
-// void
-// addPathToQueue(
-//     std::vector<uint8_t> &binary_image,
-//     std::vector<uint8_t> &fill_tracker,
-//     std::vector<int> &tempTracker,
-//     std::queue<QueueNode> &globalSavedQueue,
-//     int islandRow, int islandCol,
-//     int originalRow, int originalCol,
-//     int height, int width
-// ) {
-//     // Making a simple shortest path from original node to island node
-//     // Using Bresenham’s Line Generation Algorithm
-
-//     int startRow, endRow, startCol, endCol;
-
-//     if (islandCol < originalCol) {
-//         startRow = islandRow; startCol = islandCol;
-//         endRow = originalRow; endCol = originalCol;
-//     } else {
-//         startRow = originalRow; startCol = originalCol;
-//         endRow = islandRow; endCol = islandCol;
-//     }
-
-//     int dx = endCol - startCol;
-//     int dy = endRow - startRow;
-
-//     if (!dx) {
-//         for (int rowToAdd = std::min(startRow, endRow); rowToAdd < std::max(startRow, endRow); ++rowToAdd) {
-            
-//             // Need to make sure not adding any duplicate nodes
-//             if (fill_tracker[(rowToAdd*width) + startCol]) continue;
-
-//             binary_image[(rowToAdd*width) + startCol] = 1;
-//             fill_tracker[(rowToAdd*width) + startCol] = 1;
-//             tempTracker[(rowToAdd*width) + startCol] = 1;
-//             globalSavedQueue.push({{rowToAdd, startCol}, {0, 0}});
-//         }
-//         return;
-//     }
-
-//     double m = (double)dy / (double)dx;
-
-//     int currentRow = startRow;
-
-//     for (int col = startCol; col <= endCol; ++col) {
-//         int trueRow = round(startRow + (m * (col - startCol)));
-
-//         for (int rowToAdd = std::min(currentRow, trueRow); rowToAdd <= std::max(currentRow, trueRow); ++rowToAdd) {
-            
-//             // Need to make sure not adding any duplicate nodes
-//             if (fill_tracker[(rowToAdd*width) + col]) continue;
-
-//             binary_image[(rowToAdd*width) + col] = 1;
-//             fill_tracker[(rowToAdd*width) + col] = 1;
-//             tempTracker[(rowToAdd*width) + startCol] = 1;
-//             globalSavedQueue.push({{rowToAdd, col}, {0, 0}});
-//         }
-
-//         currentRow = trueRow;
-//     }
-// }
-
-
 std::vector<uint8_t>
 connectAllComponents(
     const std::vector<uint8_t> &original_binary_image,
@@ -356,7 +236,6 @@ connectAllComponents(
     std::vector<int> nodes_tracker(height * width, -1);
 
     // Adding the entire component found at location (0, 0) to the globalSavedQueue
-    // INEFFICIENT: USING TEMPORARY FILL_TRACKER HERE. NEED TO REMOVE
     addComponentToQueue(original_binary_image, nodes_tracker, nodePq, 0, 0, height, width);
 
     if (EXTRA_PRINT) print2DVector("Fill Tracker Adding Border Component", nodes_tracker, height, width);
@@ -438,107 +317,6 @@ connectAllComponents(
     }
 
     return final_binary_image;
-
-
-
-    // std::vector<uint8_t> fill_tracker(height * width);
-
-    // std::queue<QueueNode> globalSavedQueue;
-
-    // std::vector<uint8_t> final_binary_image = original_binary_image;
-
-    // // Adding the entire component found at location (0, 0) to the globalSavedQueue
-    // // INEFFICIENT: USING TEMPORARY FILL_TRACKER HERE. NEED TO REMOVE
-    // addComponentToQueue(original_binary_image, fill_tracker, fill_tracker, globalSavedQueue, 0, 0, height, width);
-
-    // if (EXTRA_PRINT) print2DVector("Fill Tracker Adding Border Component", fill_tracker, height, width);
-    
-    // // Iterative process
-    // while(true) {
-
-    //     // 1. Indicate all of the currently connected nodes (Distance = 0)
-    //     // All nodes in the round queue are all connected
-    //     std::queue<QueueNode> roundQueue = globalSavedQueue;
-
-    //     std::vector<uint8_t> tempTracker = fill_tracker;
-
-    //     uint8_t new_component_found = 0;
-
-    //     // 2. Perform an exhaustive BFS to find the next nearest island component to connect to the final component
-    //     while(!roundQueue.empty()) {
-
-    //         // Current node is either already connected or is not written to
-    //         QueueNode nodeToCheck = roundQueue.front();
-    //         roundQueue.pop();
-
-    //         int currentRow = nodeToCheck.currentNode.first;
-    //         int currentCol = nodeToCheck.currentNode.second;
-
-    //         int originalRow = nodeToCheck.originalNode.first;
-    //         int originalCol = nodeToCheck.originalNode.second;
-
-    //         // Check the neighbors
-    //         for (int neighbor = 0; neighbor < 4; ++neighbor) {
-            
-    //             int adjacentRow = currentRow + adjacentNodes[neighbor][0];
-    //             int adjacentCol = currentCol + adjacentNodes[neighbor][1];
-
-    //             if ((adjacentRow < 0) || (adjacentCol < 0) || (adjacentRow >= height) || (adjacentCol >= width)) continue;
-    //             if (tempTracker[(adjacentRow*width) + adjacentCol]) continue;
-            
-    //             // New island component found
-    //             if (original_binary_image[(adjacentRow*width) + adjacentCol]) {
-
-    //                 if (EXTRA_PRINT) {
-    //                     print2DVector("Round Tracked Locations Before Finding New Component", tempTracker, height, width);
-    //                     std::cout << "New island component found at: (" << adjacentRow << ", " << adjacentCol << ")\n\n";
-    //                 }
-
-    //                 // Add the entire component found at given location to the globalSavedQueue
-    //                 addComponentToQueue(original_binary_image, fill_tracker, tempTracker, globalSavedQueue, adjacentRow, adjacentCol, height, width);
-                    
-    //                 if (EXTRA_PRINT) {
-    //                     print2DVector("Fill Tracker Adding New Component", fill_tracker, height, width);
-    //                 }
-                    
-    //                 // Add a path the connects the island component
-    //                 if (!originalRow && !originalCol) {
-    //                     // This can happen is we add new path pixels that are adjacent to islands
-    //                     if (EXTRA_PRINT) std::cout << "Starting location at: (" << currentRow << ", " << currentCol << ")\n\n";
-    //                     addPathToQueue(final_binary_image, fill_tracker, tempTracker, globalSavedQueue,
-    //                                     adjacentRow, adjacentCol, currentRow, currentCol,
-    //                                     height, width);
-    //                 } else {
-    //                     if (EXTRA_PRINT) std::cout << "Starting location at: (" << originalRow << ", " << originalCol << ")\n\n";
-    //                     addPathToQueue(final_binary_image, fill_tracker, tempTracker, globalSavedQueue,
-    //                                     adjacentRow, adjacentCol, originalRow, originalCol,
-    //                                     height, width);
-    //                 }
-
-    //                 if (EXTRA_PRINT) print2DVector("Fill Tracker Adding New Component+Path", fill_tracker, height, width);
-
-    //                 new_component_found = 1;
-
-    //             } else {
-    //                 // Otherwise, just add blank space to expand
-    //                 if (!new_component_found) {
-    //                     if (!originalRow && !originalCol) {
-    //                         roundQueue.push({{adjacentRow, adjacentCol}, {currentRow, currentCol}});
-    //                     } else {
-    //                         roundQueue.push({{adjacentRow, adjacentCol}, {originalRow, originalCol}});
-    //                     }
-    //                 }
-                        
-    //                 tempTracker[(adjacentRow*width) + adjacentCol] = 1;
-    //             }
-    //         }
-    //     }
-
-    //     if (!new_component_found) {
-    //         return final_binary_image;
-    //     }
-    //     new_component_found = 0;
-    // }
 }
 
 
