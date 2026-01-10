@@ -346,20 +346,20 @@ connectAllComponents(
                     if (EXTRA_PRINT) print2DVector("Fill Tracker Adding New Component+Path", fill_tracker, image_rows, image_cols);
 
                     new_component_found = 1;
-                    break;
 
                 } else {
                     // Otherwise, just add blank space to expand
-                    if (!originalRow && !originalCol) {
-                        roundQueue.push({{adjacentRow, adjacentCol}, {currentRow, currentCol}});
-                    } else {
-                        roundQueue.push({{adjacentRow, adjacentCol}, {originalRow, originalCol}});
+                    if (!new_component_found) {
+                        if (!originalRow && !originalCol) {
+                            roundQueue.push({{adjacentRow, adjacentCol}, {currentRow, currentCol}});
+                        } else {
+                            roundQueue.push({{adjacentRow, adjacentCol}, {originalRow, originalCol}});
+                        }
                     }
+                        
                     tempTracker[(adjacentRow*image_cols) + adjacentCol] = 1;
                 }
             }
-
-            if (new_component_found) break;
         }
 
         if (!new_component_found) return final_binary_image;
