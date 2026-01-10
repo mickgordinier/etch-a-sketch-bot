@@ -121,6 +121,7 @@ addComponentToQueue(
 ) {
     globalSavedQueue.push({{start_row, start_col}, {0, 0}});
     fill_tracker[(start_row*image_cols) + start_col] = 1;
+    tempTracker[(start_row*image_cols) + start_col] = 1;
 
     std::queue<std::pair<int, int>> nodesToCheck;
     nodesToCheck.push({start_row, start_col});
@@ -333,14 +334,14 @@ main(int argc, char **argv)
 
     std::vector<uint8_t> binary_image = {
         1,   1,   1,   1,   1,   1,   1,   1,   1,   1, 
-        1,   0,   0,   1,   0,   0,   0,   0,   0,   1, 
-        1,   0,   1,   1,   1,   0,   0,   0,   0,   1, 
-        1,   0,   1,   0,   0,   0,   0,   0,   1,   1, 
-        1,   1,   1,   0,   0,   0,   1,   0,   0,   1, 
+        1,   1,   0,   0,   0,   1,   0,   0,   0,   1, 
+        1,   0,   1,   0,   0,   0,   0,   0,   0,   1, 
+        1,   0,   0,   0,   0,   1,   0,   0,   1,   1, 
+        1,   0,   0,   0,   0,   0,   0,   1,   1,   1, 
         1,   0,   0,   0,   0,   0,   1,   0,   1,   1, 
-        1,   1,   0,   0,   1,   0,   0,   0,   0,   1, 
-        1,   0,   0,   0,   1,   0,   0,   0,   0,   1, 
-        1,   1,   0,   0,   0,   0,   0,   0,   0,   1, 
+        1,   0,   0,   0,   0,   0,   0,   0,   1,   1, 
+        1,   0,   0,   0,   0,   0,   0,   0,   0,   1, 
+        1,   0,   0,   0,   0,   0,   0,   1,   0,   1, 
         1,   1,   1,   1,   1,   1,   1,   1,   1,   1
     };
     
