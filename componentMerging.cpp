@@ -358,7 +358,7 @@ performBfsClustering(
     int startRow, int startCol, int clusterIdx,
     int height, int width, int cuttoffClustering
 ) {
-    ScopedTimer timer("performBfsClustering on cluster index: " + std::to_string(clusterIdx));
+    // ScopedTimer timer("performBfsClustering on cluster index: " + std::to_string(clusterIdx));
 
     std::queue<std::pair<int, int>> q;
     q.push({startRow, startCol});
@@ -399,7 +399,7 @@ getClusterOddVerticies(
     int startRow, int startCol, int clusterIdx,
     int height, int width
 ) {
-    ScopedTimer timer("getClusterOddVerticies on cluster index: " + std::to_string(clusterIdx));
+    // ScopedTimer timer("getClusterOddVerticies on cluster index: " + std::to_string(clusterIdx));
 
     std::vector<uint32_t> oddVerticesList;
 
@@ -457,7 +457,7 @@ getDistanceMatrix (
     int startRow, int startCol, int clusterIdx,
     int height, int width
 ) {
-    ScopedTimer timer("getDistanceMatrix on cluster index: " + std::to_string(clusterIdx));
+    // ScopedTimer timer("getDistanceMatrix on cluster index: " + std::to_string(clusterIdx));
 
     std::vector<std::vector<int>> distanceMatrix(oddVerticesList.size(), std::vector<int>(oddVerticesList.size()));
 
@@ -522,7 +522,7 @@ findOddPairings (
     const std::vector<std::vector<int>> &distanceMatrix,
     int height, int width
 ) {
-    ScopedTimer timer("findOddPairings");
+    // ScopedTimer timer("findOddPairings");
 
     // Perform greedy first pass on finding shortest distances
     std::vector<std::tuple<int, int, int>> distanceTrackerTuple;
@@ -716,17 +716,16 @@ updateAllShortestPaths(
     const std::vector<std::pair<int, int>> &oddPairings,
     const std::vector<uint32_t> &oddVerticesList,
     const std::vector<uint32_t> &allNodesClustering,
+    std::vector<uint32_t> &visitTracker, uint32_t &visitId,
     int clusterIdx,
     int height, int width
 ) {
-    ScopedTimer timer("updateAllShortestPaths on cluster index: " + std::to_string(clusterIdx));;
+    // ScopedTimer timer("updateAllShortestPaths on cluster index: " + std::to_string(clusterIdx));;
 
     if (EXTRA_PRINT) std::cout << "Odd Vertex Pairings (Distance):\n";
     // int totalDistance = 0;
 
     std::vector<int> prevNodes(height * width);
-    std::vector<uint32_t> visitTracker(height * width);
-    uint32_t visitId = 1;
     
     for (const std::pair<int, int> &pair : oddPairings) {
 
@@ -758,7 +757,7 @@ performBfsClusteringAndEulerize(
     int startRow, int startCol, int clusterIdx, int cutoffClustering,
     int height, int width
 ) {
-    ScopedTimer timer("performBfsClusteringAndEulerize on cluster index: " + std::to_string(clusterIdx));
+    // ScopedTimer timer("performBfsClusteringAndEulerize on cluster index: " + std::to_string(clusterIdx));
 
     if (EXTRA_PRINT) std::cout << "Performing Clustering for cluster index: " << clusterIdx << "\n\n";
 
@@ -793,7 +792,12 @@ performBfsClusteringAndEulerize(
     std::vector<std::pair<int, int>> oddPairings = findOddPairings(oddVerticesList, distanceMatrix, height, width);
 
     // Update Graph to have double edges where needed
-    updateAllShortestPaths(allEdges, oddPairings, oddVerticesList, allNodesClustering, clusterIdx, height, width);
+    updateAllShortestPaths(
+        allEdges, oddPairings, oddVerticesList, allNodesClustering, 
+        verticesCheck, visitIdx,
+        clusterIdx, height, width);
+
+    // std::cout << "VisitIdx: " << visitIdx << "\n";
 
 }
 
