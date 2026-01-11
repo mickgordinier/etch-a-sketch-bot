@@ -392,47 +392,50 @@ performBfsClustering(
 }
 
 
-std::vector<std::pair<int, int>>
+std::vector<uint32_t>
 getClusterOddVerticies(
     const std::vector<uint32_t> &allNodesClustering,
+    std::vector<uint32_t> &verticesCheck, uint32_t visitIdx,
     int startRow, int startCol, int clusterIdx,
     int height, int width
 ) {
     // ScopedTimer timer("getClusterOddVerticies on cluster index: " + std::to_string(clusterIdx));
 
-    std::vector<std::pair<int, int>> oddVerticesList;
+    std::vector<uint32_t> oddVerticesList;
 
     // Determining odd vertices in cluster
-    std::vector<uint32_t> verticesCheck(width * height);
-    std::queue<std::pair<int, int>> q;
+    std::queue<uint32_t> q;
 
-    q.push({startRow, startCol});
-    verticesCheck[startRow*width + startCol] = 1;
+    q.push(startRow*width + startCol);
+    verticesCheck[startRow*width + startCol] = visitIdx;
     
     while(!q.empty()) {
-        std::pair<int, int> currentNode = q.front();
+        uint32_t currentNode = q.front();
         q.pop();
+
+        int currentRow = currentNode / width;
+        int currentCol = currentNode % width;
         
         int numNeighbors = 0;
         
         // Check the neighbors
         for (int neighbor = 0; neighbor < 4; ++neighbor) {
             
-            int adjacentRow = currentNode.first + adjacentNodes[neighbor][0];
-            int adjacentCol = currentNode.second + adjacentNodes[neighbor][1];
+            int adjacentRow = currentRow + adjacentNodes[neighbor][0];
+            int adjacentCol = currentCol + adjacentNodes[neighbor][1];
             
             if ((adjacentRow < 0) || (adjacentCol < 0) || (adjacentRow >= height) || (adjacentCol >= width)) continue;
             if (allNodesClustering[adjacentRow*width + adjacentCol] != clusterIdx) continue;
 
             ++numNeighbors;
 
-            if (verticesCheck[adjacentRow*width + adjacentCol]) continue;
+            if (verticesCheck[adjacentRow*width + adjacentCol] == visitIdx) continue;
 
-            verticesCheck[adjacentRow*width + adjacentCol] = 1;
-            q.push({adjacentRow, adjacentCol});
+            verticesCheck[adjacentRow*width + adjacentCol] = visitIdx;
+            q.push(adjacentRow*width + adjacentCol);
         }
 
-        if (numNeighbors % 2) oddVerticesList.push_back({currentNode.first, currentNode.second});
+        if (numNeighbors % 2) oddVerticesList.push_back(currentRow*width + currentCol);
     }
 
     return oddVerticesList;
@@ -443,7 +446,8 @@ std::vector<std::vector<int>>
 getDistanceMatrix (
     const std::vector<uint8_t> &final_binary_image,
     const std::vector<uint32_t> &allNodesClustering,
-    const std::vector<std::pair<int, int>> &oddVerticesList,
+    const std::vector<uint32_t> &oddVerticesList,
+    std::vector<uint32_t> &verticesCheck, uint32_t &visitIdx,
     int startRow, int startCol, int clusterIdx,
     int height, int width
 ) {
@@ -456,26 +460,24 @@ getDistanceMatrix (
     // Converting list --> matrix for easy finding of pairs
     std::vector<uint32_t> oddVerticesMatrix(height * width);
     for (int i = 0; i < oddVerticesList.size(); ++i) {
-        const std::pair<int, int> &p = oddVerticesList[i];
-        oddVerticesMatrix[p.first*width + p.second] = i+1;
+        const uint32_t &p = oddVerticesList[i];
+        oddVerticesMatrix[p] = i+1;
     }
 
-    std::vector<uint32_t> verticesChecked(width * height, 0);
-
     for (int i = 0; i < oddVerticesList.size()-1; ++i) {
-        
+
         uint32_t pairDistancesLeftToFind = oddVerticesList.size()-i-1;
-
+        
         std::queue<std::tuple<int, int, int>> distanceQueue;
-        ++verticesChecked[oddVerticesList[i].first*width + oddVerticesList[i].second];
-            
+        ++verticesCheck[oddVerticesList[i]];
+        
         // Perform BFS to find distance
-        distanceQueue.push({0, oddVerticesList[i].first, oddVerticesList[i].second});
-
+        distanceQueue.push({0, oddVerticesList[i]/width, oddVerticesList[i]%width});
+        
         while(pairDistancesLeftToFind > 0) {
             std::tuple<int, int, int> currentNode = distanceQueue.front();
             distanceQueue.pop();
-
+            
             // Check the neighbors
             for (int neighbor = 0; neighbor < 4; ++neighbor) {
                 
@@ -484,21 +486,23 @@ getDistanceMatrix (
                 
                 if ((adjacentRow < 0) || (adjacentCol < 0) || (adjacentRow >= height) || (adjacentCol >= width)) continue;
                 if (allNodesClustering[adjacentRow*width + adjacentCol] != clusterIdx) continue;
-                if (verticesChecked[adjacentRow*width + adjacentCol] == i+1) continue;
-
+                if (verticesCheck[adjacentRow*width + adjacentCol] == visitIdx) continue;
+                
                 int adjacentDistance = std::get<0>(currentNode)+1;
-
+                
                 if (oddVerticesMatrix[adjacentRow*width + adjacentCol] > i) {
                     int otherOddVertex = oddVerticesMatrix[adjacentRow*width + adjacentCol]-1;
                     distanceMatrix[i][otherOddVertex] = adjacentDistance;
                     distanceMatrix[otherOddVertex][i] = adjacentDistance;
                     --pairDistancesLeftToFind;
                 }
-
-                ++verticesChecked[adjacentRow*width + adjacentCol];
+                
+                ++verticesCheck[adjacentRow*width + adjacentCol];
                 distanceQueue.push({adjacentDistance, adjacentRow, adjacentCol});
             }
         }
+
+        ++visitIdx;
     }
 
     return distanceMatrix;
@@ -507,8 +511,9 @@ getDistanceMatrix (
 
 std::vector<std::pair<int, int>>
 findOddPairings (
-    const std::vector<std::pair<int, int>> &oddVerticesList,
-    const std::vector<std::vector<int>> &distanceMatrix
+    const std::vector<uint32_t> &oddVerticesList,
+    const std::vector<std::vector<int>> &distanceMatrix,
+    int height, int width
 ) {
     // ScopedTimer timer("findOddPairings");
 
@@ -543,8 +548,8 @@ findOddPairings (
         int totalDistance = 0;
 
         for (int i = 0; i < oddPairings.size(); ++i) {
-            std::cout << "(" << oddVerticesList[oddPairings[i].first].first << ", " << oddVerticesList[oddPairings[i].first].second << ") --> "
-                    << "(" << oddVerticesList[oddPairings[i].second].first << ", " << oddVerticesList[oddPairings[i].second].second << ")"
+            std::cout << "(" << oddVerticesList[oddPairings[i].first]/width << ", " << oddVerticesList[oddPairings[i].first]%width << ") --> "
+                    << "(" << oddVerticesList[oddPairings[i].second]/width << ", " << oddVerticesList[oddPairings[i].second]%width << ")"
                     << "   Distance: " << distanceMatrix[oddPairings[i].first][oddPairings[i].second] << "\n";
 
             totalDistance += distanceMatrix[oddPairings[i].first][oddPairings[i].second];
@@ -598,8 +603,37 @@ findOddPairings (
 
 
 void
+populateGraph(
+    const std::vector<uint8_t> &final_binary_image,
+    Graph &allEdges,
+    int height, int width
+) {
+    ScopedTimer timer("Populating Initial Graph");
+
+    for (int row = 0; row < height; ++row) {
+        for (int col = 0; col < width; ++col) {
+
+            if (!final_binary_image[row*width + col]) continue;
+
+            for (int neighbor = 0; neighbor < 4; ++neighbor) {
+                    
+                int adjacentRow = row + adjacentNodes[neighbor][0];
+                int adjacentCol = col + adjacentNodes[neighbor][1];
+
+                if ((adjacentRow < 0) || (adjacentCol < 0) || (adjacentRow >= height) || (adjacentCol >= width)) continue;
+                if (!final_binary_image[adjacentRow*width + adjacentCol]) continue;
+
+                allEdges[row*width + col].push_back({adjacentRow, adjacentCol, 1});
+            }
+        }
+    }
+}
+
+
+void
 updateGraphWithShortestPath(
     const std::vector<uint32_t> &allNodesClustering,
+    std::vector<int> &prevNodes, std::vector<uint32_t> &visitTracker, uint32_t visitId,
     Graph &allEdges,
     int clusterIdx,
     int row1, int col1, int row2, int col2,
@@ -608,7 +642,7 @@ updateGraphWithShortestPath(
     std::queue<int> q;
     q.push(row1*width + col1);
     
-    std::vector<int> prevNodes(height * width, -1);
+    visitTracker[row1*width + col1] = visitId;
     prevNodes[row1*width + col1] = row1*width + col1;
 
     if (EXTRA_PRINT) std::cout << "(" << row2 << ", " << col2 << ") --> ";
@@ -627,9 +661,10 @@ updateGraphWithShortestPath(
 
             if ((adjacentRow < 0) || (adjacentCol < 0) || (adjacentRow >= height) || (adjacentCol >= width)) continue;
             if (allNodesClustering[adjacentRow*width + adjacentCol] != clusterIdx) continue;
-            if (prevNodes[adjacentRow*width + adjacentCol] != -1) continue;
+            if (visitTracker[adjacentRow*width + adjacentCol] == visitId) continue;
 
             prevNodes[adjacentRow*width + adjacentCol] = currentRow*width + currentCol;
+            visitTracker[adjacentRow*width + adjacentCol] = visitId;
 
             if ((adjacentRow == row2) && (adjacentCol == col2)) {
                 currentRow = row2;
@@ -667,39 +702,12 @@ updateGraphWithShortestPath(
     }
 }
 
-void
-populateGraph(
-    const std::vector<uint8_t> &final_binary_image,
-    Graph &allEdges,
-    int height, int width
-) {
-    ScopedTimer timer("Populating Initial Graph");
-
-    for (int row = 0; row < height; ++row) {
-        for (int col = 0; col < width; ++col) {
-
-            if (!final_binary_image[row*width + col]) continue;
-
-            for (int neighbor = 0; neighbor < 4; ++neighbor) {
-                    
-                int adjacentRow = row + adjacentNodes[neighbor][0];
-                int adjacentCol = col + adjacentNodes[neighbor][1];
-
-                if ((adjacentRow < 0) || (adjacentCol < 0) || (adjacentRow >= height) || (adjacentCol >= width)) continue;
-                if (!final_binary_image[adjacentRow*width + adjacentCol]) continue;
-
-                allEdges[row*width + col].push_back({adjacentRow, adjacentCol, 1});
-            }
-        }
-    }
-}
-
 
 void
 updateAllShortestPaths(
     Graph &allEdges,
     const std::vector<std::pair<int, int>> &oddPairings,
-    const std::vector<std::pair<int, int>> &oddVerticesList,
+    const std::vector<uint32_t> &oddVerticesList,
     const std::vector<uint32_t> &allNodesClustering,
     int clusterIdx,
     int height, int width
@@ -708,17 +716,23 @@ updateAllShortestPaths(
 
     if (EXTRA_PRINT) std::cout << "Odd Vertex Pairings (Distance):\n";
     // int totalDistance = 0;
+
+    std::vector<int> prevNodes(height * width);
+    std::vector<uint32_t> visitTracker(height * width);
+    uint32_t visitId = 1;
     
     for (const std::pair<int, int> &pair : oddPairings) {
 
         updateGraphWithShortestPath(
             allNodesClustering,
+            prevNodes, visitTracker, visitId,
             allEdges,
             clusterIdx,
-            oddVerticesList[pair.first].first, oddVerticesList[pair.first].second,
-            oddVerticesList[pair.second].first, oddVerticesList[pair.second].second,
+            oddVerticesList[pair.first]/width, oddVerticesList[pair.first]%width,
+            oddVerticesList[pair.second]/width, oddVerticesList[pair.second]%width,
             height, width
         );
+        ++visitId;
 
         // if (EXTRA_PRINT) std::cout << "   Distance: " << distanceMatrix[pair.first][pair.second] << "\n";
         
@@ -737,7 +751,7 @@ performBfsClusteringAndEulerize(
     int startRow, int startCol, int clusterIdx, int cutoffClustering,
     int height, int width
 ) {
-    // ScopedTimer timer("performBfsClusteringAndEulerize on cluster index: " + std::to_string(clusterIdx));
+    ScopedTimer timer("performBfsClusteringAndEulerize on cluster index: " + std::to_string(clusterIdx));
 
     if (EXTRA_PRINT) std::cout << "Performing Clustering for cluster index: " << clusterIdx << "\n\n";
 
@@ -745,25 +759,31 @@ performBfsClusteringAndEulerize(
 
     if (EXTRA_PRINT) print2DVector("All Nodes Clustering After New Cluster", allNodesClustering, height, width);
 
-    std::vector<std::pair<int, int>> oddVerticesList = getClusterOddVerticies(allNodesClustering, startRow, startCol, clusterIdx, height, width);
+    std::vector<uint32_t> verticesCheck(height * width); 
+    uint32_t visitIdx = 1;
+
+    std::vector<uint32_t> oddVerticesList = getClusterOddVerticies(allNodesClustering, verticesCheck, visitIdx, startRow, startCol, clusterIdx, height, width);
+    ++visitIdx;
 
     if (EXTRA_PRINT) {
         std::cout << "Odd Vertex Locations:\n";
         
         for (int i = 0; i < oddVerticesList.size(); ++i) {
-            std::cout << "(" << oddVerticesList[i].first << ", " << oddVerticesList[i].second << "), ";
+            std::cout << "(" << oddVerticesList[i]/width << ", " << oddVerticesList[i]%width << "), ";
         }
         std::cout << "\n\n";
     }
 
     // Produce distance matrix for all odd vertices
     std::vector<std::vector<int>> distanceMatrix = getDistanceMatrix(
-        final_binary_image, allNodesClustering, oddVerticesList, startRow, startCol, clusterIdx, height, width);
+        final_binary_image, allNodesClustering, oddVerticesList, 
+        verticesCheck, visitIdx,
+        startRow, startCol, clusterIdx, height, width);
 
     if (EXTRA_PRINT) print2DVector("Distance Matrix", distanceMatrix);
 
     // Perform Greedy + 2-opt to find near-best odd pairing
-    std::vector<std::pair<int, int>> oddPairings = findOddPairings(oddVerticesList, distanceMatrix);
+    std::vector<std::pair<int, int>> oddPairings = findOddPairings(oddVerticesList, distanceMatrix, height, width);
 
     // Update Graph to have double edges where needed
     updateAllShortestPaths(allEdges, oddPairings, oddVerticesList, allNodesClustering, clusterIdx, height, width);
