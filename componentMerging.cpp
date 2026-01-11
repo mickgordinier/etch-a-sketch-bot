@@ -45,6 +45,13 @@ struct QueueNode {
     std::pair<int, int> originalNode;
 };
 
+struct Edge {
+    int adjacentRow;
+    int adjacentCol;
+    int edgeCount;
+};
+using Graph = std::vector<std::vector<Edge>>;
+
 
 template <typename T>
 void
@@ -575,6 +582,7 @@ findOddPairings (
 void
 performBfsClusteringAndEulerize(
     const std::vector<uint8_t> &final_binary_image,
+    Graph &allEdges,
     std::vector<std::vector<uint32_t>> &allNodesClustering,
     int startRow, int startCol, int clusterIdx, int cutoffClustering,
     int height, int width
@@ -616,6 +624,9 @@ performBfsClusteringAndEulerize(
         totalDistance += distanceMatrix[oddPairings[i].first][oddPairings[i].second];
     }
     std::cout << "Total Added Distance: " << totalDistance << "\n\n";
+
+    // Update Graph to have double edges where needed
+
 }
 
 
@@ -626,6 +637,23 @@ performCPP (
     int cutoffClustering,
     int height, int width
 ) {
+
+    Graph allEdges(height * width);
+
+    for (int row = 0; row < height; ++row) {
+        for (int col = 0; col < width; ++col) {
+            for (int neighbor = 0; neighbor < 4; ++neighbor) {
+                    
+                int adjacentRow = row + adjacentNodes[neighbor][0];
+                int adjacentCol = col + adjacentNodes[neighbor][1];
+
+                if ((adjacentRow < 0) || (adjacentCol < 0) || (adjacentRow >= height) || (adjacentCol >= width)) continue;
+
+                allEdges[row*width + col].push_back({adjacentRow, adjacentCol, 1});
+            }
+        }
+    }
+
     std::vector<std::vector<uint32_t>> allNodesClustering(height, std::vector<uint32_t>(width));
 
     int clusterIdx = 1;
@@ -639,7 +667,7 @@ performCPP (
 
             if (!final_binary_image[row*width + col]) continue;
             if (allNodesClustering[row][col] == 0) {
-                performBfsClusteringAndEulerize(final_binary_image, allNodesClustering, row, col, clusterIdx, cutoffClustering, height, width);
+                performBfsClusteringAndEulerize(final_binary_image, allEdges, allNodesClustering, row, col, clusterIdx, cutoffClustering, height, width);
                 ++clusterIdx;
             }
         }
