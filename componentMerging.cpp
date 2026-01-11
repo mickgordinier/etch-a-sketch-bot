@@ -358,6 +358,8 @@ performBfsClustering(
     int startRow, int startCol, int clusterIdx,
     int height, int width, int cuttoffClustering
 ) {
+    // ScopedTimer timer("performBfsClustering on cluster index: " + std::to_string(clusterIdx));
+
     std::queue<std::pair<int, int>> q;
     q.push({startRow, startCol});
     allNodesClustering[startRow][startCol] = clusterIdx;
@@ -396,6 +398,8 @@ getClusterOddVerticies(
     int startRow, int startCol, int clusterIdx,
     int height, int width
 ) {
+    // ScopedTimer timer("getClusterOddVerticies on cluster index: " + std::to_string(clusterIdx));
+
     std::vector<std::pair<int, int>> oddVerticesList;
 
     // Determining odd vertices in cluster
@@ -443,57 +447,56 @@ getDistanceMatrix (
     int startRow, int startCol, int clusterIdx,
     int height, int width
 ) {
-
-    // NOTE COULD POTENTIALLY IMPROVE SPEED BY NOT NEEDING TO BREAK EVERY INDEX OF J
-    // WOULD NEED TO BUILD A SEPERATE MATRIX WITH EACH NODE REPESENTING THE PAIRING INDEX
-    // CAN DO JUST ONE SWEEP
+    // ScopedTimer timer("getDistanceMatrix on cluster index: " + std::to_string(clusterIdx));
 
     std::vector<std::vector<int>> distanceMatrix(oddVerticesList.size(), std::vector<int>(oddVerticesList.size()));
 
     if (oddVerticesList.empty()) return distanceMatrix;
 
     // Converting list --> matrix for easy finding of pairs
-    // NOTE: COULD IMPROVE POSSIBLY BY MOVING TO SET/MAP DUE TO VERY FEW ODD VERTICES
-    std::vector<std::vector<uint32_t>> oddVerticesMatrix(height, std::vector<uint32_t>(width));
+    std::vector<uint32_t> oddVerticesMatrix(height * width);
     for (int i = 0; i < oddVerticesList.size(); ++i) {
         const std::pair<int, int> &p = oddVerticesList[i];
-        oddVerticesMatrix[p.first][p.second] = i+1;
+        oddVerticesMatrix[p.first*width + p.second] = i+1;
     }
+
+    std::vector<uint32_t> verticesChecked(width * height, 0);
 
     for (int i = 0; i < oddVerticesList.size()-1; ++i) {
         
         uint32_t pairDistancesLeftToFind = oddVerticesList.size()-i-1;
 
-        std::queue<std::vector<int>> distanceQueue;
-        std::vector<uint32_t> verticesChecked(width * height);
-        verticesChecked[oddVerticesList[i].first*width + oddVerticesList[i].second] = 1;
+        std::queue<std::tuple<int, int, int>> distanceQueue;
+        ++verticesChecked[oddVerticesList[i].first*width + oddVerticesList[i].second];
             
         // Perform BFS to find distance
         distanceQueue.push({0, oddVerticesList[i].first, oddVerticesList[i].second});
 
         while(pairDistancesLeftToFind > 0) {
-            std::vector<int> currentNode = distanceQueue.front();
+            std::tuple<int, int, int> currentNode = distanceQueue.front();
             distanceQueue.pop();
 
             // Check the neighbors
             for (int neighbor = 0; neighbor < 4; ++neighbor) {
                 
-                int adjacentRow = currentNode[1] + adjacentNodes[neighbor][0];
-                int adjacentCol = currentNode[2] + adjacentNodes[neighbor][1];
+                int adjacentRow = std::get<1>(currentNode) + adjacentNodes[neighbor][0];
+                int adjacentCol = std::get<2>(currentNode) + adjacentNodes[neighbor][1];
                 
                 if ((adjacentRow < 0) || (adjacentCol < 0) || (adjacentRow >= height) || (adjacentCol >= width)) continue;
                 if (allNodesClustering[adjacentRow][adjacentCol] != clusterIdx) continue;
-                if (verticesChecked[adjacentRow*width + adjacentCol]) continue;
+                if (verticesChecked[adjacentRow*width + adjacentCol] == i+1) continue;
 
-                if (oddVerticesMatrix[adjacentRow][adjacentCol] > i) {
-                    int otherOddVertex = oddVerticesMatrix[adjacentRow][adjacentCol]-1;
-                    distanceMatrix[i][otherOddVertex] = currentNode[0]+1;
-                    distanceMatrix[otherOddVertex][i] = currentNode[0]+1;
+                int adjacentDistance = std::get<0>(currentNode)+1;
+
+                if (oddVerticesMatrix[adjacentRow*width + adjacentCol] > i) {
+                    int otherOddVertex = oddVerticesMatrix[adjacentRow*width + adjacentCol]-1;
+                    distanceMatrix[i][otherOddVertex] = adjacentDistance;
+                    distanceMatrix[otherOddVertex][i] = adjacentDistance;
                     --pairDistancesLeftToFind;
                 }
 
-                verticesChecked[adjacentRow*width + adjacentCol] = 1;
-                distanceQueue.push({currentNode[0]+1, adjacentRow, adjacentCol});
+                ++verticesChecked[adjacentRow*width + adjacentCol];
+                distanceQueue.push({adjacentDistance, adjacentRow, adjacentCol});
             }
         }
     }
@@ -507,6 +510,7 @@ findOddPairings (
     const std::vector<std::pair<int, int>> &oddVerticesList,
     const std::vector<std::vector<int>> &distanceMatrix
 ) {
+    // ScopedTimer timer("findOddPairings");
 
     // Perform greedy first pass on finding shortest distances
     std::vector<std::tuple<int, int, int>> distanceTrackerTuple;
@@ -601,56 +605,64 @@ updateGraphWithShortestPath(
     int row1, int col1, int row2, int col2,
     int height, int width
 ) {
-    std::vector<std::pair<int, int>> prevNodes(height * width, {-1, -1});
-
-    std::queue<std::pair<int, int>> q;
-    q.push({row1, col1});
-    prevNodes[row1*width + col1] = {0, 0};
+    std::queue<int> q;
+    q.push(row1*width + col1);
+    
+    std::vector<int> prevNodes(height * width, -1);
+    prevNodes[row1*width + col1] = row1*width + col1;
 
     if (EXTRA_PRINT) std::cout << "(" << row2 << ", " << col2 << ") --> ";
 
     while(true) {
-        std::pair<int, int> currentNode = q.front();
+        int currentNode = q.front();
         q.pop();
+
+        int currentRow = currentNode / width;
+        int currentCol = currentNode % width;
 
         for (int neighbor = 0; neighbor < 4; ++neighbor) {
             
-            int adjacentRow = currentNode.first + adjacentNodes[neighbor][0];
-            int adjacentCol = currentNode.second + adjacentNodes[neighbor][1];
+            int adjacentRow = currentRow + adjacentNodes[neighbor][0];
+            int adjacentCol = currentCol + adjacentNodes[neighbor][1];
 
             if ((adjacentRow < 0) || (adjacentCol < 0) || (adjacentRow >= height) || (adjacentCol >= width)) continue;
             if (allNodesClustering[adjacentRow][adjacentCol] != clusterIdx) continue;
-            if (prevNodes[adjacentRow*height + adjacentCol].first != -1) continue;
+            if (prevNodes[adjacentRow*width + adjacentCol] != -1) continue;
 
-            prevNodes[adjacentRow*width + adjacentCol] = {currentNode.first, currentNode.second};
+            prevNodes[adjacentRow*width + adjacentCol] = currentRow*width + currentCol;
 
             if ((adjacentRow == row2) && (adjacentCol == col2)) {
-                std::pair<int, int> currentNode = {row2, col2};
+                currentRow = row2;
+                currentCol = col2;
                 
-                while((currentNode.first != row1) || (currentNode.second != col1)) {
-                    std::pair<int, int> prevNode = prevNodes[currentNode.first*width + currentNode.second];
+                while((currentRow != row1) || (currentCol != col1)) {
+                    int prevNode = prevNodes[currentRow*width + currentCol];
 
-                    if (EXTRA_PRINT) std::cout << "(" << prevNode.first << ", " << prevNode.second << ") --> ";
+                    int prevRow = prevNode / width;
+                    int prevCol = prevNode % width;
 
-                    for (Edge &edge : allEdges[currentNode.first*width + currentNode.second]) {
-                        if ((edge.adjacentRow != prevNode.first) || (edge.adjacentCol != prevNode.second)) continue;
+                    if (EXTRA_PRINT) std::cout << "(" << prevRow << ", " << prevCol << ") --> ";
+
+                    for (Edge &edge : allEdges[currentRow*width + currentCol]) {
+                        if ((edge.adjacentRow != prevRow) || (edge.adjacentCol != prevCol)) continue;
                         ++edge.edgeCount;
                         break;
                     }
 
-                    for (Edge &edge : allEdges[prevNode.first*width + prevNode.second]) {
-                        if ((edge.adjacentRow != currentNode.first) || (edge.adjacentCol != currentNode.second)) continue;
+                    for (Edge &edge : allEdges[prevRow*width + prevCol]) {
+                        if ((edge.adjacentRow != currentRow) || (edge.adjacentCol != currentCol)) continue;
                         ++edge.edgeCount;
                         break;
                     }
 
-                    currentNode = prevNode;
+                    currentRow = prevRow;
+                    currentCol = prevCol;
                 }
 
                 return;
             }
             
-            q.push({adjacentRow, adjacentCol});
+            q.push(adjacentRow*width + adjacentCol);
         }
     }
 }
@@ -661,7 +673,6 @@ populateGraph(
     Graph &allEdges,
     int height, int width
 ) {
-
     ScopedTimer timer("Populating Initial Graph");
 
     for (int row = 0; row < height; ++row) {
@@ -681,6 +692,40 @@ populateGraph(
             }
         }
     }
+}
+
+
+void
+updateAllShortestPaths(
+    Graph &allEdges,
+    const std::vector<std::pair<int, int>> &oddPairings,
+    const std::vector<std::pair<int, int>> &oddVerticesList,
+    const std::vector<std::vector<uint32_t>> &allNodesClustering,
+    int clusterIdx,
+    int height, int width
+) {
+    // ScopedTimer timer("updateAllShortestPaths on cluster index: " + std::to_string(clusterIdx));;
+
+    if (EXTRA_PRINT) std::cout << "Odd Vertex Pairings (Distance):\n";
+    // int totalDistance = 0;
+    
+    for (const std::pair<int, int> &pair : oddPairings) {
+
+        updateGraphWithShortestPath(
+            allNodesClustering,
+            allEdges,
+            clusterIdx,
+            oddVerticesList[pair.first].first, oddVerticesList[pair.first].second,
+            oddVerticesList[pair.second].first, oddVerticesList[pair.second].second,
+            height, width
+        );
+
+        // if (EXTRA_PRINT) std::cout << "   Distance: " << distanceMatrix[pair.first][pair.second] << "\n";
+        
+        // totalDistance += distanceMatrix[pair.first][pair.second];
+    }
+
+    // if (BASIC_PRINT) std::cout << "Total Added Distance: " << totalDistance << "\n\n";
 }
 
 
@@ -721,26 +766,8 @@ performBfsClusteringAndEulerize(
     std::vector<std::pair<int, int>> oddPairings = findOddPairings(oddVerticesList, distanceMatrix);
 
     // Update Graph to have double edges where needed
-    if (EXTRA_PRINT) std::cout << "Odd Vertex Pairings (Distance):\n";
-    int totalDistance = 0;
-    
-    for (std::pair<int, int> &pair : oddPairings) {
+    updateAllShortestPaths(allEdges, oddPairings, oddVerticesList, allNodesClustering, clusterIdx, height, width);
 
-        updateGraphWithShortestPath(
-            allNodesClustering,
-            allEdges,
-            clusterIdx,
-            oddVerticesList[pair.first].first, oddVerticesList[pair.first].second,
-            oddVerticesList[pair.second].first, oddVerticesList[pair.second].second,
-            height, width
-        );
-
-        if (EXTRA_PRINT) std::cout << "   Distance: " << distanceMatrix[pair.first][pair.second] << "\n";
-        
-        totalDistance += distanceMatrix[pair.first][pair.second];
-    }
-
-    if (BASIC_PRINT) std::cout << "Total Added Distance: " << totalDistance << "\n\n";
 }
 
 
