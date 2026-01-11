@@ -5,6 +5,8 @@
 #include <string>
 #include <iomanip>
 #include <chrono>
+#include <tuple>
+#include <algorithm>
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "./stb/stb_image.h"
@@ -322,24 +324,282 @@ connectAllComponents(
 }
 
 
+void
+performBfsClustering(
+    const std::vector<uint8_t> &final_binary_image,
+    std::vector<uint32_t> &allNodesClustering,
+    int startRow, int startCol, int clusterIdx,
+    int height, int width, int cuttoffClustering
+) {
+    std::queue<std::pair<int, int>> q;
+    q.push({startRow, startCol});
+    allNodesClustering[startRow*width + startCol] = clusterIdx;
+
+    int nodesInCluster = 1;
+
+    // Clustering nodes
+    while(!q.empty()) {
+        std::pair<int, int> currentNode = q.front();
+        q.pop();
+
+        // Check the neighbors
+        for (int neighbor = 0; neighbor < 4; ++neighbor) {
+        
+            int adjacentRow = currentNode.first + adjacentNodes[neighbor][0];
+            int adjacentCol = currentNode.second + adjacentNodes[neighbor][1];
+
+            if ((adjacentRow < 0) || (adjacentCol < 0) || (adjacentRow >= height) || (adjacentCol >= width)) continue;
+            if (!final_binary_image[adjacentRow*width + adjacentCol]) continue;
+            if (allNodesClustering[adjacentRow*width + adjacentCol]) continue;
+
+            allNodesClustering[adjacentRow*width + adjacentCol] = clusterIdx;
+            
+            ++nodesInCluster;
+
+            if (nodesInCluster >= cuttoffClustering) continue;
+            q.push({adjacentRow, adjacentCol});
+        }
+    }
+}
+
+
+std::vector<std::pair<int, int>>
+getClusterOddVerticies(
+    const std::vector<uint32_t> &allNodesClustering,
+    int startRow, int startCol, int clusterIdx,
+    int height, int width
+) {
+    std::vector<std::pair<int, int>> oddVerticesList;
+
+    // Determining odd vertices in cluster
+    std::vector<uint32_t> verticesCheck(width * height);
+    std::queue<std::pair<int, int>> q;
+
+    q.push({startRow, startCol});
+    verticesCheck[startRow*width + startCol] = 1;
+    
+    while(!q.empty()) {
+        std::pair<int, int> currentNode = q.front();
+        q.pop();
+        
+        int numNeighbors = 0;
+        
+        // Check the neighbors
+        for (int neighbor = 0; neighbor < 4; ++neighbor) {
+            
+            int adjacentRow = currentNode.first + adjacentNodes[neighbor][0];
+            int adjacentCol = currentNode.second + adjacentNodes[neighbor][1];
+            
+            if ((adjacentRow < 0) || (adjacentCol < 0) || (adjacentRow >= height) || (adjacentCol >= width)) continue;
+            if (allNodesClustering[adjacentRow*width + adjacentCol] != clusterIdx) continue;
+
+            ++numNeighbors;
+
+            if (verticesCheck[adjacentRow*width + adjacentCol]) continue;
+
+            verticesCheck[adjacentRow*width + adjacentCol] = 1;
+            q.push({adjacentRow, adjacentCol});
+
+            oddVerticesList.push_back({adjacentRow, adjacentCol});
+        }
+    }
+}
+
+
+std::vector<std::vector<int>>
+getDistanceMatrix (
+    const std::vector<uint8_t> &final_binary_image,
+    const std::vector<uint32_t> &allNodesClustering,
+    const std::vector<std::pair<int, int>> &oddVerticesList,
+    int startRow, int startCol, int clusterIdx,
+    int height, int width
+) {
+    std::vector<std::vector<int>> distanceTracker(oddVerticesList.size(), std::vector<int>(oddVerticesList.size()));
+
+    for (int i = 0; i < oddVerticesList.size(); ++i) {
+        for (int j = i+1; j < oddVerticesList.size(); ++j) {
+
+            std::queue<std::vector<int>> distanceQueue;
+            std::vector<uint32_t> verticesCheck(width * height);
+             
+            // Perform BFS to find distance
+            distanceQueue.push({0, oddVerticesList[i].first, oddVerticesList[i].second});
+
+            while(true) {
+                std::vector<int> currentNode = distanceQueue.front();
+                distanceQueue.pop();
+
+                // Check the neighbors
+                for (int neighbor = 0; neighbor < 4; ++neighbor) {
+                    
+                    int adjacentRow = currentNode[1] + adjacentNodes[neighbor][0];
+                    int adjacentCol = currentNode[2] + adjacentNodes[neighbor][1];
+                    
+                    if ((adjacentRow < 0) || (adjacentCol < 0) || (adjacentRow >= height) || (adjacentCol >= width)) continue;
+                    if (allNodesClustering[adjacentRow*width + adjacentCol] != clusterIdx) continue;
+                    if (verticesCheck[adjacentRow*width + adjacentCol]) continue;
+
+                    if ((adjacentRow == oddVerticesList[j].first) && (adjacentCol == oddVerticesList[j].second)) {
+                        distanceTracker[i][j] = currentNode[0]+1;
+                        break;
+                    }
+
+                    verticesCheck[adjacentRow*width + adjacentCol] = 1;
+                    distanceQueue.push({currentNode[0]+1, adjacentRow, adjacentCol});
+                }
+            }
+        }
+    }
+
+    return distanceTracker;
+}
+
+
+std::vector<std::pair<int, int>>
+findOddPairings (
+    const std::vector<std::vector<int>> &distanceTracker
+) {
+
+    // Perform greedy first pass on finding shortest distances
+    std::vector<std::tuple<int, int, int>> distanceTrackerTuple;
+
+    for (int i = 0; i < distanceTracker.size(); ++i) {
+        for (int j = i+1; j < distanceTracker.size(); ++j) {
+            distanceTrackerTuple.push_back({distanceTracker[i][j], i, j});
+        }
+    }
+    std::sort(distanceTrackerTuple.begin(), distanceTrackerTuple.end());
+
+    std::vector<std::pair<int, int>> oddPairings(distanceTracker.size()/2);
+    std::vector<uint8_t> oddVertexUsed(distanceTracker.size());
+
+    int pairIdx = 0;
+
+    for (const std::tuple<int, int, int> &closestDistance : distanceTrackerTuple) {
+        if (!oddVertexUsed[std::get<1>(closestDistance)] && !oddVertexUsed[std::get<2>(closestDistance)]) {
+            oddVertexUsed[std::get<1>(closestDistance)] = 1;
+            oddVertexUsed[std::get<2>(closestDistance)] = 1;
+            oddPairings[pairIdx++] = {std::get<1>(closestDistance), std::get<2>(closestDistance)};
+
+            if (pairIdx == oddPairings.size()) break;
+        }
+    }
+
+    uint8_t hasImproved = 1;
+
+    // Performing 2-opt (2-edge optimization) improvement
+    while (hasImproved) {
+
+        hasImproved = 0;
+
+        for (int i = 0; i < oddPairings.size(); ++i) {
+            for (int j = i+1; j < oddPairings.size(); ++j) {
+                
+                int a = oddPairings[i].first; 
+                int b = oddPairings[i].second;
+                
+                int c = oddPairings[j].first; 
+                int d = oddPairings[j].second;
+                
+                
+                int currentPairDistance = distanceTracker[a][b] + distanceTracker[c][d];
+                
+                int newPairDistance = distanceTracker[a][c] + distanceTracker[b][d];
+                
+                if (newPairDistance < currentPairDistance) {
+                    oddPairings[i] = {a, c};
+                    oddPairings[j] = {b, d};
+                    hasImproved = 1;
+                }
+                
+                newPairDistance = distanceTracker[a][d] + distanceTracker[b][c];
+                
+                if (newPairDistance < currentPairDistance) {
+                    oddPairings[i] = {a, d};
+                    oddPairings[j] = {b, c};
+                    hasImproved = 1;
+                }
+            }
+        }
+    }
+
+    return oddPairings;
+}
+
+
+void
+performBfsClusteringAndEulerize(
+    const std::vector<uint8_t> &final_binary_image,
+    std::vector<uint32_t> &allNodesClustering,
+    int startRow, int startCol, int clusterIdx,
+    int height, int width
+) {
+
+    performBfsClustering(final_binary_image, allNodesClustering, startRow, startCol, clusterIdx, height, width, 50);
+
+    std::vector<std::pair<int, int>> oddVerticesList = getClusterOddVerticies(allNodesClustering, startRow, startCol, clusterIdx, height, width);
+
+    // std::cout << "Cluster Idx: " << clusterIdx << "    Nodes in Cluster: " << nodesInCluster << "   Num Odd Vertices: " << oddVerticesList.size() << "\n";
+
+    // Produce distance matrix for all odd vertices
+    std::vector<std::vector<int>> distanceTracker = getDistanceMatrix(
+        final_binary_image, allNodesClustering, oddVerticesList, startRow, startCol, clusterIdx, height, width);
+
+
+    // Perform Greedy + 2-opt to find near-best odd pairing
+    std::vector<std::pair<int, int>> oddPairings = findOddPairings(distanceTracker);
+}
+
+
+void
+performCPP (
+    const std::vector<uint8_t> &final_binary_image,
+    const std::string &output_steps,
+    int height, int width
+) {
+    std::vector<uint32_t> allNodesClustering(height*width);
+
+    int clusterIdx = 1;
+
+    int totalPixels = 0;
+
+    for (int row = 0; row < height; ++row) {
+        for (int col = 0; col < width; ++col) {
+
+            totalPixels += final_binary_image[row*width + col];
+
+            if (!final_binary_image[row*width + col]) continue;
+            if (allNodesClustering[row*width + col] == 0) {
+                performBfsClusteringAndEulerize(final_binary_image, allNodesClustering, row, col, clusterIdx, height, width);
+                ++clusterIdx;
+            }
+        }
+    }
+
+    std::cout << "TOTAL PIXEL COUNT: " << totalPixels << "\n";
+}
+
+
 int 
 main(int argc, char **argv) 
 {
     ScopedTimer program_timer("TOTAL PROGRAM");
 
     int height, width;
-    std::string output_filepath;
+    std::string output_image, output_steps;
 
     std::vector<uint8_t> binary_image;
 
-    // {executable}.out {height} {width} {output_filepath} {BASIC_PRINT} {EXTRA_PRINT}
-    if (argc == 6) {
+    // {executable}.out {height} {width} {output_image} {output_steps} {BASIC_PRINT} {EXTRA_PRINT}
+    if (argc == 7) {
 
         height = std::stoi(argv[1]);
         width = std::stoi(argv[2]);
-        output_filepath = argv[3];
-        BASIC_PRINT = std::stoi(argv[4]);
-        EXTRA_PRINT = std::stoi(argv[5]);
+        output_image = argv[3];
+        output_steps = argv[4];
+
+        BASIC_PRINT = std::stoi(argv[5]);
+        EXTRA_PRINT = std::stoi(argv[6]);
 
         // std::vector<uint8_t> binary_image = {
         // 1,   1,   1,   1,   1,   1,   1,   1,   1,   1, 
@@ -358,14 +618,15 @@ main(int argc, char **argv)
         generateRandomImage(binary_image, height, width);
 
     } 
-    // {executable}.out {input_filepath} {output_filepath} {BASIC_PRINT} {EXTRA_PRINT}
-    else if (argc == 5) {
+    // {executable}.out {input_filepath} {output_filepath} {output_steps} {BASIC_PRINT} {EXTRA_PRINT}
+    else if (argc == 6) {
 
         int channels;
         const char * input_filepath = argv[1];
-        output_filepath = argv[2];
-        BASIC_PRINT = std::stoi(argv[3]);
-        EXTRA_PRINT = std::stoi(argv[4]);
+        output_image = argv[2];
+        output_steps = argv[3];
+        BASIC_PRINT = std::stoi(argv[4]);
+        EXTRA_PRINT = std::stoi(argv[5]);
 
         unsigned char* data = stbi_load(input_filepath, &width, &height, &channels, 1);
         if (!data) {
@@ -397,12 +658,17 @@ main(int argc, char **argv)
 
     if (BASIC_PRINT) print2DVector("FINAL IMAGE", final_binary_image, height, width);
 
+    // Finding reasonable shortest path to produce image
+    // Solving for Chinese Postman Problem
+    performCPP(final_binary_image, output_steps, height, width);
+
+    // Outputting final image to bmp file
     for (int i = 0; i < height * width; ++i) {
         final_binary_image[i] = (final_binary_image[i]) ? 0 : 255;
     }
 
     // Writing to output filepath
-    if (!stbi_write_bmp(output_filepath.c_str(), width, height, 1, final_binary_image.data())) {
+    if (!stbi_write_bmp(output_image.c_str(), width, height, 1, final_binary_image.data())) {
         std::cerr << "Failed to write BMP\n";
         return 1;
     }
