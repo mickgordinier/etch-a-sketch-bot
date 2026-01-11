@@ -354,7 +354,7 @@ connectAllComponents(
 void
 performBfsClustering(
     const std::vector<uint8_t> &final_binary_image,
-    std::vector<std::vector<uint32_t>> &allNodesClustering,
+    std::vector<uint32_t> &allNodesClustering,
     int startRow, int startCol, int clusterIdx,
     int height, int width, int cuttoffClustering
 ) {
@@ -362,7 +362,7 @@ performBfsClustering(
 
     std::queue<std::pair<int, int>> q;
     q.push({startRow, startCol});
-    allNodesClustering[startRow][startCol] = clusterIdx;
+    allNodesClustering[startRow*width + startCol] = clusterIdx;
 
     int nodesInCluster = 1;
 
@@ -379,9 +379,9 @@ performBfsClustering(
 
             if ((adjacentRow < 0) || (adjacentCol < 0) || (adjacentRow >= height) || (adjacentCol >= width)) continue;
             if (!final_binary_image[adjacentRow*width + adjacentCol]) continue;
-            if (allNodesClustering[adjacentRow][adjacentCol]) continue;
+            if (allNodesClustering[adjacentRow*width + adjacentCol]) continue;
 
-            allNodesClustering[adjacentRow][adjacentCol] = clusterIdx;
+            allNodesClustering[adjacentRow*width + adjacentCol] = clusterIdx;
             
             ++nodesInCluster;
 
@@ -394,7 +394,7 @@ performBfsClustering(
 
 std::vector<std::pair<int, int>>
 getClusterOddVerticies(
-    const std::vector<std::vector<uint32_t>> &allNodesClustering,
+    const std::vector<uint32_t> &allNodesClustering,
     int startRow, int startCol, int clusterIdx,
     int height, int width
 ) {
@@ -422,7 +422,7 @@ getClusterOddVerticies(
             int adjacentCol = currentNode.second + adjacentNodes[neighbor][1];
             
             if ((adjacentRow < 0) || (adjacentCol < 0) || (adjacentRow >= height) || (adjacentCol >= width)) continue;
-            if (allNodesClustering[adjacentRow][adjacentCol] != clusterIdx) continue;
+            if (allNodesClustering[adjacentRow*width + adjacentCol] != clusterIdx) continue;
 
             ++numNeighbors;
 
@@ -442,7 +442,7 @@ getClusterOddVerticies(
 std::vector<std::vector<int>>
 getDistanceMatrix (
     const std::vector<uint8_t> &final_binary_image,
-    const std::vector<std::vector<uint32_t>> &allNodesClustering,
+    const std::vector<uint32_t> &allNodesClustering,
     const std::vector<std::pair<int, int>> &oddVerticesList,
     int startRow, int startCol, int clusterIdx,
     int height, int width
@@ -483,7 +483,7 @@ getDistanceMatrix (
                 int adjacentCol = std::get<2>(currentNode) + adjacentNodes[neighbor][1];
                 
                 if ((adjacentRow < 0) || (adjacentCol < 0) || (adjacentRow >= height) || (adjacentCol >= width)) continue;
-                if (allNodesClustering[adjacentRow][adjacentCol] != clusterIdx) continue;
+                if (allNodesClustering[adjacentRow*width + adjacentCol] != clusterIdx) continue;
                 if (verticesChecked[adjacentRow*width + adjacentCol] == i+1) continue;
 
                 int adjacentDistance = std::get<0>(currentNode)+1;
@@ -599,7 +599,7 @@ findOddPairings (
 
 void
 updateGraphWithShortestPath(
-    const std::vector<std::vector<uint32_t>> &allNodesClustering,
+    const std::vector<uint32_t> &allNodesClustering,
     Graph &allEdges,
     int clusterIdx,
     int row1, int col1, int row2, int col2,
@@ -626,7 +626,7 @@ updateGraphWithShortestPath(
             int adjacentCol = currentCol + adjacentNodes[neighbor][1];
 
             if ((adjacentRow < 0) || (adjacentCol < 0) || (adjacentRow >= height) || (adjacentCol >= width)) continue;
-            if (allNodesClustering[adjacentRow][adjacentCol] != clusterIdx) continue;
+            if (allNodesClustering[adjacentRow*width + adjacentCol] != clusterIdx) continue;
             if (prevNodes[adjacentRow*width + adjacentCol] != -1) continue;
 
             prevNodes[adjacentRow*width + adjacentCol] = currentRow*width + currentCol;
@@ -700,7 +700,7 @@ updateAllShortestPaths(
     Graph &allEdges,
     const std::vector<std::pair<int, int>> &oddPairings,
     const std::vector<std::pair<int, int>> &oddVerticesList,
-    const std::vector<std::vector<uint32_t>> &allNodesClustering,
+    const std::vector<uint32_t> &allNodesClustering,
     int clusterIdx,
     int height, int width
 ) {
@@ -733,7 +733,7 @@ void
 performBfsClusteringAndEulerize(
     const std::vector<uint8_t> &final_binary_image,
     Graph &allEdges,
-    std::vector<std::vector<uint32_t>> &allNodesClustering,
+    std::vector<uint32_t> &allNodesClustering,
     int startRow, int startCol, int clusterIdx, int cutoffClustering,
     int height, int width
 ) {
@@ -743,7 +743,7 @@ performBfsClusteringAndEulerize(
 
     performBfsClustering(final_binary_image, allNodesClustering, startRow, startCol, clusterIdx, height, width, cutoffClustering);
 
-    if (EXTRA_PRINT) print2DVector("All Nodes Clustering After New Cluster", allNodesClustering);
+    if (EXTRA_PRINT) print2DVector("All Nodes Clustering After New Cluster", allNodesClustering, height, width);
 
     std::vector<std::pair<int, int>> oddVerticesList = getClusterOddVerticies(allNodesClustering, startRow, startCol, clusterIdx, height, width);
 
@@ -775,11 +775,10 @@ void
 generateAndEulerizeClusters (
     const std::vector<uint8_t> &final_binary_image,
     Graph &allEdges,
-    std::vector<std::vector<uint32_t>> &allNodesClustering,
+    std::vector<uint32_t> &allNodesClustering,
     int cutoffClustering,
     int height, int width
 ) {
-    
     ScopedTimer timer("generateAndEulerizeClusters");
 
     int clusterIdx = 1;
@@ -791,7 +790,7 @@ generateAndEulerizeClusters (
             totalPixels += final_binary_image[row*width + col];
 
             if (!final_binary_image[row*width + col]) continue;
-            if (allNodesClustering[row][col] == 0) {
+            if (allNodesClustering[row*width + col] == 0) {
                 performBfsClusteringAndEulerize(final_binary_image, allEdges, allNodesClustering, row, col, clusterIdx, cutoffClustering, height, width);
                 ++clusterIdx;
             }
@@ -806,7 +805,7 @@ void
 connectClustersOnGraph (
     const std::vector<uint8_t> &final_binary_image,
     Graph &allEdges,
-    const std::vector<std::vector<uint32_t>> &allNodesClustering,
+    const std::vector<uint32_t> &allNodesClustering,
     int height, int width
 ) {
     ScopedTimer timer("connectClustersOnGraph");
@@ -823,7 +822,7 @@ connectClustersOnGraph (
 
                 if ((adjacentRow < 0) || (adjacentCol < 0) || (adjacentRow >= height) || (adjacentCol >= width)) continue;
                 if (!final_binary_image[adjacentRow*width + adjacentCol]) continue;
-                if (allNodesClustering[row][col] == allNodesClustering[adjacentRow][adjacentCol]) continue;
+                if (allNodesClustering[row*width + col] == allNodesClustering[adjacentRow*width + adjacentCol]) continue;
 
                 for (Edge &edge : allEdges[row*width + col]) {
                     if ((edge.adjacentRow != adjacentRow) || (edge.adjacentCol != adjacentCol)) continue;
@@ -845,7 +844,7 @@ eulerizeGraph (
 ) {
     ScopedTimer timer("eulerizeGraph");
 
-    std::vector<std::vector<uint32_t>> allNodesClustering(height, std::vector<uint32_t>(width));
+    std::vector<uint32_t> allNodesClustering(height * width);
     generateAndEulerizeClusters(final_binary_image, allEdges, allNodesClustering, cutoffClustering, height, width);
 
     // Double edge count the neighboring edges to other components
@@ -998,8 +997,8 @@ main(int argc, char **argv)
         return 1;
     }
 
-    // placeBorderAroundImage(binary_image, height, width);
-    binary_image[0] = 1;
+    placeBorderAroundImage(binary_image, height, width);
+    // binary_image[0] = 1;
     
     if (BASIC_PRINT) print2DVector("ORIGINAL IMAGE", binary_image, height, width);
     
