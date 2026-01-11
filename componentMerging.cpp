@@ -580,6 +580,69 @@ findOddPairings (
 
 
 void
+updateGraphWithShortestPath(
+    const std::vector<std::vector<uint32_t>> &allNodesClustering,
+    Graph &allEdges,
+    int clusterIdx,
+    int row1, int col1, int row2, int col2,
+    int height, int width
+) {
+    std::vector<std::pair<int, int>> prevNodes(height * width, {-1, -1});
+
+    std::queue<std::pair<int, int>> q;
+    q.push({row1, col1});
+    prevNodes[row1*width + col1] = {0, 0};
+
+    std::cout << "(" << row2 << ", " << col2 << ") --> ";
+
+    while(true) {
+        std::pair<int, int> currentNode = q.front();
+        q.pop();
+
+        for (int neighbor = 0; neighbor < 4; ++neighbor) {
+            
+            int adjacentRow = currentNode.first + adjacentNodes[neighbor][0];
+            int adjacentCol = currentNode.second + adjacentNodes[neighbor][1];
+
+            if ((adjacentRow < 0) || (adjacentCol < 0) || (adjacentRow >= height) || (adjacentCol >= width)) continue;
+            if (allNodesClustering[adjacentRow][adjacentCol] != clusterIdx) continue;
+            if (prevNodes[adjacentRow*height + adjacentCol].first != -1) continue;
+
+            prevNodes[adjacentRow*width + adjacentCol] = {currentNode.first, currentNode.second};
+
+            if ((adjacentRow == row2) && (adjacentCol == col2)) {
+                std::pair<int, int> currentNode = {row2, col2};
+                
+                while((currentNode.first != row1) || (currentNode.second != col1)) {
+                    std::pair<int, int> prevNode = prevNodes[currentNode.first*width + currentNode.second];
+
+                    std::cout << "(" << prevNode.first << ", " << prevNode.second << ") --> ";
+
+                    for (Edge &edge : allEdges[currentNode.first*width + currentNode.second]) {
+                        if ((edge.adjacentRow != prevNode.first) || (edge.adjacentCol != prevNode.second)) continue;
+                        ++edge.edgeCount;
+                        break;
+                    }
+
+                    for (Edge &edge : allEdges[prevNode.first*width + prevNode.second]) {
+                        if ((edge.adjacentRow != currentNode.first) || (edge.adjacentCol != currentNode.second)) continue;
+                        ++edge.edgeCount;
+                        break;
+                    }
+
+                    currentNode = prevNode;
+                }
+
+                return;
+            }
+            
+            q.push({adjacentRow, adjacentCol});
+        }
+    }
+}
+
+
+void
 performBfsClusteringAndEulerize(
     const std::vector<uint8_t> &final_binary_image,
     Graph &allEdges,
@@ -612,20 +675,28 @@ performBfsClusteringAndEulerize(
     // Perform Greedy + 2-opt to find near-best odd pairing
     std::vector<std::pair<int, int>> oddPairings = findOddPairings(oddVerticesList, distanceMatrix);
 
+    
+    // Update Graph to have double edges where needed
     std::cout << "Odd Vertex Pairings (Distance):\n";
-
     int totalDistance = 0;
+    
+    for (std::pair<int, int> &pair : oddPairings) {
 
-    for (int i = 0; i < oddPairings.size(); ++i) {
-        std::cout << "(" << oddVerticesList[oddPairings[i].first].first << ", " << oddVerticesList[oddPairings[i].first].second << ") --> "
-                  << "(" << oddVerticesList[oddPairings[i].second].first << ", " << oddVerticesList[oddPairings[i].second].second << ")"
-                  << "   Distance: " << distanceMatrix[oddPairings[i].first][oddPairings[i].second] << "\n";
+        updateGraphWithShortestPath(
+            allNodesClustering,
+            allEdges,
+            clusterIdx,
+            oddVerticesList[pair.first].first, oddVerticesList[pair.first].second,
+            oddVerticesList[pair.second].first, oddVerticesList[pair.second].second,
+            height, width
+        );
 
-        totalDistance += distanceMatrix[oddPairings[i].first][oddPairings[i].second];
+        std::cout << "   Distance: " << distanceMatrix[pair.first][pair.second] << "\n";
+        
+        totalDistance += distanceMatrix[pair.first][pair.second];
     }
     std::cout << "Total Added Distance: " << totalDistance << "\n\n";
 
-    // Update Graph to have double edges where needed
 
 }
 
@@ -701,11 +772,11 @@ main(int argc, char **argv)
         binary_image.resize(height * width);
 
         // binary_image = {
-        //     1,   0,   0,   1,   0, 
-        //     0,   1,   0,   1,   0, 
+        //     1,   1,   1,   1,   1, 
+        //     1,   0,   0,   0,   1, 
         //     1,   0,   1,   0,   1, 
-        //     0,   0,   1,   0,   0, 
-        //     0,   0,   1,   1,   0
+        //     1,   0,   0,   0,   1, 
+        //     1,   1,   1,   1,   1,
         // };
         
         generateRandomImage(binary_image, height, width);
