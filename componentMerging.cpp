@@ -2,6 +2,7 @@
 #include <vector>
 #include <random>
 #include <queue>
+#include <stack>
 #include <string>
 #include <iomanip>
 #include <chrono>
@@ -562,6 +563,7 @@ findOddPairings (
                     oddPairings[j] = {b, d};
                     currentPairDistance = newPairDistance;
                     hasImproved = 1;
+                    break;
                 }
                 
                 newPairDistance = distanceMatrix[a][d] + distanceMatrix[b][c];
@@ -570,6 +572,7 @@ findOddPairings (
                     oddPairings[i] = {a, d};
                     oddPairings[j] = {b, c};
                     hasImproved = 1;
+                    break;
                 }
             }
         }
@@ -696,8 +699,60 @@ performBfsClusteringAndEulerize(
         totalDistance += distanceMatrix[pair.first][pair.second];
     }
     std::cout << "Total Added Distance: " << totalDistance << "\n\n";
+}
 
 
+std::vector<std::pair<int, int>> 
+findEulerCircuit(
+    Graph &g, 
+    int startRow, int startCol,
+    int height, int width
+) {
+    std::vector<std::pair<int, int>> circuit;
+    std::stack<std::pair<int, int>> st;
+
+    st.push({startRow, startCol});
+
+    while (!st.empty()) {
+        std::pair<int, int> u = st.top();
+
+        bool moved = false;
+
+        for (Edge &e : g[u.first*width + u.second]) {
+            
+            if (e.edgeCount > 0) {
+                std::pair<int, int> v = {e.adjacentRow, e.adjacentCol};
+
+                // consume edge u -> v
+                e.edgeCount--;
+
+                // consume edge v -> u
+                for (Edge &rev : g[v.first*width + v.second]) {
+                    if ((rev.adjacentRow == u.first) && (rev.adjacentCol == u.second)) {
+                        rev.edgeCount--;
+                        break;
+                    }
+                }
+
+                st.push(v);
+                moved = true;
+                break;
+            }
+        }
+
+        if (!moved) {
+            circuit.push_back(u);
+            st.pop();
+        }
+    }
+
+    std::reverse(circuit.begin(), circuit.end());
+
+    for (auto &adj : g)
+        for (auto &e : adj)
+            assert(e.edgeCount == 0);
+
+    return circuit;
 }
 
 
@@ -713,12 +768,16 @@ performCPP (
 
     for (int row = 0; row < height; ++row) {
         for (int col = 0; col < width; ++col) {
+
+            if (!final_binary_image[row*width + col]) continue;
+
             for (int neighbor = 0; neighbor < 4; ++neighbor) {
                     
                 int adjacentRow = row + adjacentNodes[neighbor][0];
                 int adjacentCol = col + adjacentNodes[neighbor][1];
 
                 if ((adjacentRow < 0) || (adjacentCol < 0) || (adjacentRow >= height) || (adjacentCol >= width)) continue;
+                if (!final_binary_image[adjacentRow*width + adjacentCol]) continue;
 
                 allEdges[row*width + col].push_back({adjacentRow, adjacentCol, 1});
             }
@@ -744,7 +803,36 @@ performCPP (
         }
     }
 
-    std::cout << "TOTAL PIXEL COUNT: " << totalPixels << "\n";
+    std::cout << "TOTAL PIXEL COUNT: " << totalPixels << "\n\n";
+
+    // Double edge count the neighboring edges to other components
+    for (int row = 0; row < height; ++row) {
+        for (int col = 0; col < width; ++col) {
+
+            if (!final_binary_image[row*width + col]) continue;
+
+            for (int neighbor = 0; neighbor < 4; ++neighbor) {
+                    
+                int adjacentRow = row + adjacentNodes[neighbor][0];
+                int adjacentCol = col + adjacentNodes[neighbor][1];
+
+                if ((adjacentRow < 0) || (adjacentCol < 0) || (adjacentRow >= height) || (adjacentCol >= width)) continue;
+                if (!final_binary_image[adjacentRow*width + adjacentCol]) continue;
+                if (allNodesClustering[row][col] == allNodesClustering[adjacentRow][adjacentCol]) continue;
+
+                for (Edge &edge : allEdges[row*width + col]) {
+                    if ((edge.adjacentRow != adjacentRow) || (edge.adjacentCol != adjacentCol)) continue;
+                    ++edge.edgeCount;
+                    break;
+                }
+            }
+        }
+    }
+
+    // Perform Hierholzer's algorithm to find Eulerian Circuit
+    std::vector<std::pair<int, int>> fullCircuit = findEulerCircuit(allEdges, 0, 0, height, width);
+
+    std::cout << "Number of steps total: " << fullCircuit.size() << "\n\n";
 }
 
 
@@ -773,10 +861,10 @@ main(int argc, char **argv)
 
         // binary_image = {
         //     1,   1,   1,   1,   1, 
-        //     1,   0,   0,   0,   1, 
+        //     1,   0,   0,   1,   1, 
+        //     1,   1,   0,   1,   1, 
         //     1,   0,   1,   0,   1, 
-        //     1,   0,   0,   0,   1, 
-        //     1,   1,   1,   1,   1,
+        //     1,   1,   1,   1,   1
         // };
         
         generateRandomImage(binary_image, height, width);
@@ -824,7 +912,7 @@ main(int argc, char **argv)
 
     // Finding reasonable shortest path to produce image
     // Solving for Chinese Postman Problem
-    performCPP(final_binary_image, output_steps, 50, height, width);
+    performCPP(final_binary_image, output_steps, 100, height, width);
 
     // Outputting final image to bmp file
     for (int i = 0; i < height * width; ++i) {
