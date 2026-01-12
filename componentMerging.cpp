@@ -4,6 +4,7 @@
 #include <queue>
 #include <stack>
 #include <string>
+#include <array>
 #include <iomanip>
 #include <chrono>
 #include <tuple>
@@ -15,7 +16,6 @@
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "./stb/stb_image_write.h"
 
-const int adjacentNodes[4][2] = {{-1, 0}, {1, 0}, {0, -1}, {0, 1}};
 
 uint8_t EXTRA_PRINT = 1;
 uint8_t BASIC_PRINT = 1;
@@ -26,16 +26,16 @@ struct ScopedTimer {
     std::chrono::high_resolution_clock::time_point start;
 
     ScopedTimer(const std::string &task_name)
-        : name(task_name),
-          start(std::chrono::high_resolution_clock::now()) {
+    : name(task_name),
+    start(std::chrono::high_resolution_clock::now()) {
         std::cout << "\n[START] " << name << "\n";
     }
-
+    
     ~ScopedTimer() {
         auto end = std::chrono::high_resolution_clock::now();
         auto duration =
             std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-        std::cout << "[END]   " << name
+            std::cout << "[END]   " << name
                   << " | Time: " << duration.count() << " ms\n\n";
     }
 };
@@ -46,11 +46,12 @@ struct QueueNode {
     std::pair<int, int> originalNode;
 };
 
-struct Edge {
-    uint32_t adjacentNode;
-    int edgeCount;
-};
-using Graph = std::vector<std::vector<Edge>>;
+const int adjacentNodes[4][2] = {{-1, 0}, {1, 0}, {0, -1}, {0, 1}};
+
+// Vector of all pixels in image
+// Each pixel has (at most) 4 neighbors.
+// Can know exactly which index to use through adjacentNodes
+using Graph = std::vector<std::array<uint32_t, 4>>;
 
 
 template <typename T>
@@ -357,7 +358,7 @@ performBfsClustering(
     int startRow, int startCol, int clusterIdx,
     int height, int width, int cuttoffClustering
 ) {
-    // ScopedTimer timer("performBfsClustering on cluster index: " + std::to_string(clusterIdx));
+    ScopedTimer timer("performBfsClustering on cluster index: " + std::to_string(clusterIdx));
 
     std::queue<std::pair<int, int>> q;
     q.push({startRow, startCol});
@@ -398,7 +399,7 @@ getClusterOddVerticies(
     int startRow, int startCol, int clusterIdx,
     int height, int width
 ) {
-    // ScopedTimer timer("getClusterOddVerticies on cluster index: " + std::to_string(clusterIdx));
+    ScopedTimer timer("getClusterOddVerticies on cluster index: " + std::to_string(clusterIdx));
 
     std::vector<uint32_t> oddVerticesList;
 
@@ -456,7 +457,7 @@ getDistanceMatrix (
     int startRow, int startCol, int clusterIdx,
     int height, int width
 ) {
-    // ScopedTimer timer("getDistanceMatrix on cluster index: " + std::to_string(clusterIdx));
+    ScopedTimer timer("getDistanceMatrix on cluster index: " + std::to_string(clusterIdx));
 
     std::vector<std::vector<int>> distanceMatrix(oddVerticesList.size(), std::vector<int>(oddVerticesList.size()));
 
@@ -474,7 +475,7 @@ getDistanceMatrix (
         uint32_t pairDistancesLeftToFind = oddVerticesList.size()-i-1;
         
         std::queue<DistanceNode> distanceQueue;
-        ++verticesCheck[oddVerticesList[i]];
+        verticesCheck[oddVerticesList[i]] = visitIdx;
         
         // Perform BFS to find distance
         distanceQueue.push({0, oddVerticesList[i]});
@@ -503,7 +504,7 @@ getDistanceMatrix (
                 }
 
                 uint32_t adjacentIdx = adjacentRow*width + adjacentCol;
-                ++verticesCheck[adjacentIdx];
+                verticesCheck[adjacentIdx] = visitIdx;
                 distanceQueue.push({adjacentDistance, adjacentIdx});
             }
         }
@@ -521,7 +522,7 @@ findOddPairings (
     const std::vector<std::vector<int>> &distanceMatrix,
     int height, int width
 ) {
-    // ScopedTimer timer("findOddPairings");
+    ScopedTimer timer("findOddPairings");
 
     // Perform greedy first pass on finding shortest distances
     std::vector<std::tuple<int, int, int>> distanceTrackerTuple;
@@ -631,7 +632,7 @@ populateGraph(
                 if ((adjacentRow < 0) || (adjacentCol < 0) || (adjacentRow >= height) || (adjacentCol >= width)) continue;
                 if (!final_binary_image[adjacentRow*width + adjacentCol]) continue;
 
-                allEdges[currentNode].push_back({(uint32_t)(adjacentRow*width + adjacentCol), 1});
+                allEdges[currentNode][neighbor] = 1;
             }
         }
     }
@@ -641,7 +642,7 @@ populateGraph(
 void
 updateGraphWithShortestPath(
     const std::vector<uint32_t> &allNodesClustering,
-    std::vector<int> &prevNodes, std::vector<uint32_t> &visitTracker, uint32_t visitId,
+    std::vector<uint8_t> &prevNodes, std::vector<uint32_t> &visitTracker, uint32_t visitId,
     Graph &allEdges,
     int clusterIdx,
     uint32_t node1, uint32_t node2,
@@ -651,49 +652,49 @@ updateGraphWithShortestPath(
     q.push(node1);
     
     visitTracker[node1] = visitId;
-    prevNodes[node1] = node1;
 
     if (EXTRA_PRINT) std::cout << "(" << node2/width << ", " << node2%width << ") --> ";
 
     while(true) {
-        int currentNode = q.front();
+        uint32_t currentNode = q.front();
         q.pop();
 
         int currentRow = currentNode / width;
         int currentCol = currentNode % width;
 
-        for (int neighbor = 0; neighbor < 4; ++neighbor) {
+        for (uint8_t neighbor = 0; neighbor < 4; ++neighbor) {
             
             int adjacentRow = currentRow + adjacentNodes[neighbor][0];
             int adjacentCol = currentCol + adjacentNodes[neighbor][1];
+            
+            if ((adjacentRow < 0) || (adjacentCol < 0) || (adjacentRow >= height) || (adjacentCol >= width)) continue;
+
             int adjacentNode = adjacentRow*width + adjacentCol;
 
-            if ((adjacentRow < 0) || (adjacentCol < 0) || (adjacentRow >= height) || (adjacentCol >= width)) continue;
             if (allNodesClustering[adjacentNode] != clusterIdx) continue;
             if (visitTracker[adjacentNode] == visitId) continue;
 
-            prevNodes[adjacentNode] = currentNode;
+            prevNodes[adjacentNode] = neighbor;   // Indicating that adjacentNode = currentNode + neighbor
             visitTracker[adjacentNode] = visitId;
 
+            // If we found the other node we need to reach
             if (adjacentNode == node2) {
+                
+                // Walk backwards through looking at the neighbors
                 currentNode = node2;
                 
                 while(currentNode != node1) {
-                    int prevNode = prevNodes[currentNode];
+
+                    // currentNode = prevNode + prevNeighbor
+                    // --> prevNode = currentNode - prevNeighbor
+                    uint8_t prevNeighbor = prevNodes[currentNode];
+                    uint32_t prevNode = currentNode - (adjacentNodes[prevNeighbor][0]*width + adjacentNodes[prevNeighbor][1]);
 
                     if (EXTRA_PRINT) std::cout << "(" << prevNode/width << ", " << prevNode%width << ") --> ";
 
-                    for (Edge &edge : allEdges[currentNode]) {
-                        if (edge.adjacentNode != prevNode) continue;
-                        ++edge.edgeCount;
-                        break;
-                    }
-
-                    for (Edge &edge : allEdges[prevNode]) {
-                        if (edge.adjacentNode != currentNode) continue;
-                        ++edge.edgeCount;
-                        break;
-                    }
+                    // 0 <-> 1  and 2 <-> 3 (Must flip 0 bit through XOR)
+                    ++allEdges[prevNode][prevNeighbor];
+                    ++allEdges[currentNode][prevNeighbor ^ 0x1];
 
                     currentNode = prevNode;
                 }
@@ -717,12 +718,12 @@ updateAllShortestPaths(
     int clusterIdx,
     int height, int width
 ) {
-    // ScopedTimer timer("updateAllShortestPaths on cluster index: " + std::to_string(clusterIdx));;
+    ScopedTimer timer("updateAllShortestPaths on cluster index: " + std::to_string(clusterIdx));;
 
     if (EXTRA_PRINT) std::cout << "Odd Vertex Pairings (Distance):\n";
     // int totalDistance = 0;
 
-    std::vector<int> prevNodes(height * width);
+    std::vector<uint8_t> prevNodes(height * width);
     
     for (const std::pair<int, int> &pair : oddPairings) {
 
@@ -753,7 +754,7 @@ performBfsClusteringAndEulerize(
     int startRow, int startCol, int clusterIdx, int cutoffClustering,
     int height, int width
 ) {
-    // ScopedTimer timer("performBfsClusteringAndEulerize on cluster index: " + std::to_string(clusterIdx));
+    ScopedTimer timer("performBfsClusteringAndEulerize on cluster index: " + std::to_string(clusterIdx));
 
     if (EXTRA_PRINT) std::cout << "Performing Clustering for cluster index: " << clusterIdx << "\n\n";
 
@@ -848,17 +849,15 @@ connectClustersOnGraph (
                     
                 int adjacentRow = row + adjacentNodes[neighbor][0];
                 int adjacentCol = col + adjacentNodes[neighbor][1];
-                uint32_t adjacentNode = adjacentRow*width + adjacentCol;
-
+                
                 if ((adjacentRow < 0) || (adjacentCol < 0) || (adjacentRow >= height) || (adjacentCol >= width)) continue;
-                if (!final_binary_image[adjacentRow*width + adjacentCol]) continue;
-                if (allNodesClustering[currentNode] == allNodesClustering[adjacentRow*width + adjacentCol]) continue;
 
-                for (Edge &edge : allEdges[currentNode]) {
-                    if (edge.adjacentNode != adjacentNode) continue;
-                    ++edge.edgeCount;
-                    break;
-                }
+                int adjacentNode = adjacentRow*width + adjacentCol;
+
+                if (!final_binary_image[adjacentNode]) continue;
+                if (allNodesClustering[currentNode] == allNodesClustering[adjacentNode]) continue;
+
+                ++allEdges[currentNode][neighbor];
             }
         }
     }
@@ -884,7 +883,7 @@ eulerizeGraph (
 
 std::vector<uint32_t> 
 findEulerCircuit(
-    Graph &g, 
+    Graph &allEdges, 
     uint32_t startNode,
     int height, int width
 ) {
@@ -901,21 +900,18 @@ findEulerCircuit(
 
         bool moved = false;
 
-        for (Edge &e : g[u]) {
+        for (int neighbor = 0; neighbor < 4; ++neighbor) {
+
+            uint32_t &edgeCount = allEdges[u][neighbor];
             
-            if (e.edgeCount > 0) {
-                uint32_t v = e.adjacentNode;
+            if (edgeCount > 0) {
+                uint32_t v = u + (adjacentNodes[neighbor][0]*width + adjacentNodes[neighbor][1]);
 
                 // consume edge u -> v
-                e.edgeCount--;
+                --edgeCount;
 
                 // consume edge v -> u
-                for (Edge &rev : g[v]) {
-                    if (rev.adjacentNode == u) {
-                        rev.edgeCount--;
-                        break;
-                    }
-                }
+                --allEdges[v][neighbor ^ 0x1];
 
                 st.push(v);
                 moved = true;
@@ -931,9 +927,9 @@ findEulerCircuit(
 
     std::reverse(circuit.begin(), circuit.end());
 
-    for (auto &adj : g)
-        for (auto &e : adj)
-            assert(e.edgeCount == 0);
+    for (auto &adj : allEdges)
+        for (uint32_t e : adj)
+            assert(e == 0);
 
     return circuit;
 }
@@ -948,7 +944,8 @@ performCPP (
 ) {
     ScopedTimer timer("Perform Chinese Postman Problem");
 
-    Graph allEdges(height * width);
+    Graph allEdges(height * width, std::array<uint32_t, 4>({0, 0, 0, 0}));
+
     populateGraph(final_binary_image, allEdges, height, width);
 
     eulerizeGraph(final_binary_image, allEdges, cutoffClustering, height, width);
