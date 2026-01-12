@@ -358,7 +358,7 @@ performBfsClustering(
     int startRow, int startCol, int clusterIdx,
     int height, int width, int cuttoffClustering
 ) {
-    ScopedTimer timer("performBfsClustering on cluster index: " + std::to_string(clusterIdx));
+    // ScopedTimer timer("performBfsClustering on cluster index: " + std::to_string(clusterIdx));
 
     std::queue<std::pair<int, int>> q;
     q.push({startRow, startCol});
@@ -399,7 +399,7 @@ getClusterOddVerticies(
     int startRow, int startCol, int clusterIdx,
     int height, int width
 ) {
-    ScopedTimer timer("getClusterOddVerticies on cluster index: " + std::to_string(clusterIdx));
+    // ScopedTimer timer("getClusterOddVerticies on cluster index: " + std::to_string(clusterIdx));
 
     std::vector<uint32_t> oddVerticesList;
 
@@ -443,7 +443,7 @@ getClusterOddVerticies(
 
 
 struct DistanceNode {
-    uint32_t distance;
+    uint16_t distance;
     uint32_t idx;
 };
 
@@ -457,7 +457,7 @@ getDistanceMatrix (
     int startRow, int startCol, int clusterIdx,
     int height, int width
 ) {
-    ScopedTimer timer("getDistanceMatrix on cluster index: " + std::to_string(clusterIdx));
+    // ScopedTimer timer("getDistanceMatrix on cluster index: " + std::to_string(clusterIdx));
 
     std::vector<std::vector<int>> distanceMatrix(oddVerticesList.size(), std::vector<int>(oddVerticesList.size()));
 
@@ -483,29 +483,34 @@ getDistanceMatrix (
         while(pairDistancesLeftToFind > 0) {
             DistanceNode currentNode = distanceQueue.front();
             distanceQueue.pop();
+
+            int row = currentNode.idx / width;
+            int col = currentNode.idx % width;
             
             // Check the neighbors
             for (int neighbor = 0; neighbor < 4; ++neighbor) {
                 
-                int adjacentRow = currentNode.idx/width + adjacentNodes[neighbor][0];
-                int adjacentCol = currentNode.idx%width + adjacentNodes[neighbor][1];
+                int adjacentRow = row + adjacentNodes[neighbor][0];
+                int adjacentCol = col + adjacentNodes[neighbor][1];
                 
                 if ((adjacentRow < 0) || (adjacentCol < 0) || (adjacentRow >= height) || (adjacentCol >= width)) continue;
-                if (allNodesClustering[adjacentRow*width + adjacentCol] != clusterIdx) continue;
-                if (verticesCheck[adjacentRow*width + adjacentCol] == visitIdx) continue;
+
+                uint32_t adjacentNode = adjacentRow*width + adjacentCol;
+
+                if (allNodesClustering[adjacentNode] != clusterIdx) continue;
+                if (verticesCheck[adjacentNode] == visitIdx) continue;
                 
-                uint32_t adjacentDistance = currentNode.distance +1;
+                uint16_t adjacentDistance = currentNode.distance +1;
                 
-                if (oddVerticesMatrix[adjacentRow*width + adjacentCol] > i) {
-                    int otherOddVertex = oddVerticesMatrix[adjacentRow*width + adjacentCol]-1;
+                if (oddVerticesMatrix[adjacentNode] > i) {
+                    int otherOddVertex = oddVerticesMatrix[adjacentNode]-1;
                     distanceMatrix[i][otherOddVertex] = adjacentDistance;
                     distanceMatrix[otherOddVertex][i] = adjacentDistance;
                     --pairDistancesLeftToFind;
                 }
 
-                uint32_t adjacentIdx = adjacentRow*width + adjacentCol;
-                verticesCheck[adjacentIdx] = visitIdx;
-                distanceQueue.push({adjacentDistance, adjacentIdx});
+                verticesCheck[adjacentNode] = visitIdx;
+                distanceQueue.push({adjacentDistance, adjacentNode});
             }
         }
 
@@ -522,7 +527,7 @@ findOddPairings (
     const std::vector<std::vector<int>> &distanceMatrix,
     int height, int width
 ) {
-    ScopedTimer timer("findOddPairings");
+    // ScopedTimer timer("findOddPairings");
 
     // Perform greedy first pass on finding shortest distances
     std::vector<std::tuple<int, int, int>> distanceTrackerTuple;
@@ -718,7 +723,7 @@ updateAllShortestPaths(
     int clusterIdx,
     int height, int width
 ) {
-    ScopedTimer timer("updateAllShortestPaths on cluster index: " + std::to_string(clusterIdx));;
+    // ScopedTimer timer("updateAllShortestPaths on cluster index: " + std::to_string(clusterIdx));;
 
     if (EXTRA_PRINT) std::cout << "Odd Vertex Pairings (Distance):\n";
     // int totalDistance = 0;
@@ -754,7 +759,7 @@ performBfsClusteringAndEulerize(
     int startRow, int startCol, int clusterIdx, int cutoffClustering,
     int height, int width
 ) {
-    ScopedTimer timer("performBfsClusteringAndEulerize on cluster index: " + std::to_string(clusterIdx));
+    // ScopedTimer timer("performBfsClusteringAndEulerize on cluster index: " + std::to_string(clusterIdx));
 
     if (EXTRA_PRINT) std::cout << "Performing Clustering for cluster index: " << clusterIdx << "\n\n";
 
@@ -1035,7 +1040,7 @@ main(int argc, char **argv)
 
     // Finding reasonable shortest path to produce image
     // Solving for Chinese Postman Problem
-    performCPP(final_binary_image, output_steps, 100, height, width);
+    performCPP(final_binary_image, output_steps, 4000, height, width);
 
     // Outputting final image to bmp file
     for (int i = 0; i < height * width; ++i) {
