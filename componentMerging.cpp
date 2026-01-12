@@ -47,8 +47,7 @@ struct QueueNode {
 };
 
 struct Edge {
-    int adjacentRow;
-    int adjacentCol;
+    uint32_t adjacentNode;
     int edgeCount;
 };
 using Graph = std::vector<std::vector<Edge>>;
@@ -622,6 +621,8 @@ populateGraph(
 
             if (!final_binary_image[row*width + col]) continue;
 
+            int currentNode = row*width + col;
+
             for (int neighbor = 0; neighbor < 4; ++neighbor) {
                     
                 int adjacentRow = row + adjacentNodes[neighbor][0];
@@ -630,7 +631,7 @@ populateGraph(
                 if ((adjacentRow < 0) || (adjacentCol < 0) || (adjacentRow >= height) || (adjacentCol >= width)) continue;
                 if (!final_binary_image[adjacentRow*width + adjacentCol]) continue;
 
-                allEdges[row*width + col].push_back({adjacentRow, adjacentCol, 1});
+                allEdges[currentNode].push_back({(uint32_t)(adjacentRow*width + adjacentCol), 1});
             }
         }
     }
@@ -643,16 +644,16 @@ updateGraphWithShortestPath(
     std::vector<int> &prevNodes, std::vector<uint32_t> &visitTracker, uint32_t visitId,
     Graph &allEdges,
     int clusterIdx,
-    int row1, int col1, int row2, int col2,
+    uint32_t node1, uint32_t node2,
     int height, int width
 ) {
-    std::queue<int> q;
-    q.push(row1*width + col1);
+    std::queue<uint32_t> q;
+    q.push(node1);
     
-    visitTracker[row1*width + col1] = visitId;
-    prevNodes[row1*width + col1] = row1*width + col1;
+    visitTracker[node1] = visitId;
+    prevNodes[node1] = node1;
 
-    if (EXTRA_PRINT) std::cout << "(" << row2 << ", " << col2 << ") --> ";
+    if (EXTRA_PRINT) std::cout << "(" << node2/width << ", " << node2%width << ") --> ";
 
     while(true) {
         int currentNode = q.front();
@@ -665,40 +666,36 @@ updateGraphWithShortestPath(
             
             int adjacentRow = currentRow + adjacentNodes[neighbor][0];
             int adjacentCol = currentCol + adjacentNodes[neighbor][1];
+            int adjacentNode = adjacentRow*width + adjacentCol;
 
             if ((adjacentRow < 0) || (adjacentCol < 0) || (adjacentRow >= height) || (adjacentCol >= width)) continue;
-            if (allNodesClustering[adjacentRow*width + adjacentCol] != clusterIdx) continue;
-            if (visitTracker[adjacentRow*width + adjacentCol] == visitId) continue;
+            if (allNodesClustering[adjacentNode] != clusterIdx) continue;
+            if (visitTracker[adjacentNode] == visitId) continue;
 
-            prevNodes[adjacentRow*width + adjacentCol] = currentRow*width + currentCol;
-            visitTracker[adjacentRow*width + adjacentCol] = visitId;
+            prevNodes[adjacentNode] = currentNode;
+            visitTracker[adjacentNode] = visitId;
 
-            if ((adjacentRow == row2) && (adjacentCol == col2)) {
-                currentRow = row2;
-                currentCol = col2;
+            if (adjacentNode == node2) {
+                currentNode = node2;
                 
-                while((currentRow != row1) || (currentCol != col1)) {
-                    int prevNode = prevNodes[currentRow*width + currentCol];
+                while(currentNode != node1) {
+                    int prevNode = prevNodes[currentNode];
 
-                    int prevRow = prevNode / width;
-                    int prevCol = prevNode % width;
+                    if (EXTRA_PRINT) std::cout << "(" << prevNode/width << ", " << prevNode%width << ") --> ";
 
-                    if (EXTRA_PRINT) std::cout << "(" << prevRow << ", " << prevCol << ") --> ";
-
-                    for (Edge &edge : allEdges[currentRow*width + currentCol]) {
-                        if ((edge.adjacentRow != prevRow) || (edge.adjacentCol != prevCol)) continue;
+                    for (Edge &edge : allEdges[currentNode]) {
+                        if (edge.adjacentNode != prevNode) continue;
                         ++edge.edgeCount;
                         break;
                     }
 
-                    for (Edge &edge : allEdges[prevRow*width + prevCol]) {
-                        if ((edge.adjacentRow != currentRow) || (edge.adjacentCol != currentCol)) continue;
+                    for (Edge &edge : allEdges[prevNode]) {
+                        if (edge.adjacentNode != currentNode) continue;
                         ++edge.edgeCount;
                         break;
                     }
 
-                    currentRow = prevRow;
-                    currentCol = prevCol;
+                    currentNode = prevNode;
                 }
 
                 return;
@@ -734,8 +731,7 @@ updateAllShortestPaths(
             prevNodes, visitTracker, visitId,
             allEdges,
             clusterIdx,
-            oddVerticesList[pair.first]/width, oddVerticesList[pair.first]%width,
-            oddVerticesList[pair.second]/width, oddVerticesList[pair.second]%width,
+            oddVerticesList[pair.first], oddVerticesList[pair.second],
             height, width
         );
         ++visitId;
@@ -844,19 +840,22 @@ connectClustersOnGraph (
     for (int row = 0; row < height; ++row) {
         for (int col = 0; col < width; ++col) {
 
-            if (!final_binary_image[row*width + col]) continue;
+            int currentNode = row*width + col;
+
+            if (!final_binary_image[currentNode]) continue;
 
             for (int neighbor = 0; neighbor < 4; ++neighbor) {
                     
                 int adjacentRow = row + adjacentNodes[neighbor][0];
                 int adjacentCol = col + adjacentNodes[neighbor][1];
+                uint32_t adjacentNode = adjacentRow*width + adjacentCol;
 
                 if ((adjacentRow < 0) || (adjacentCol < 0) || (adjacentRow >= height) || (adjacentCol >= width)) continue;
                 if (!final_binary_image[adjacentRow*width + adjacentCol]) continue;
-                if (allNodesClustering[row*width + col] == allNodesClustering[adjacentRow*width + adjacentCol]) continue;
+                if (allNodesClustering[currentNode] == allNodesClustering[adjacentRow*width + adjacentCol]) continue;
 
-                for (Edge &edge : allEdges[row*width + col]) {
-                    if ((edge.adjacentRow != adjacentRow) || (edge.adjacentCol != adjacentCol)) continue;
+                for (Edge &edge : allEdges[currentNode]) {
+                    if (edge.adjacentNode != adjacentNode) continue;
                     ++edge.edgeCount;
                     break;
                 }
@@ -883,36 +882,36 @@ eulerizeGraph (
 }
 
 
-std::vector<std::pair<int, int>> 
+std::vector<uint32_t> 
 findEulerCircuit(
     Graph &g, 
-    int startRow, int startCol,
+    uint32_t startNode,
     int height, int width
 ) {
 
     ScopedTimer timer("Find Euler Circuit");
 
-    std::vector<std::pair<int, int>> circuit;
-    std::stack<std::pair<int, int>> st;
+    std::vector<uint32_t> circuit;
+    std::stack<uint32_t> st;
 
-    st.push({startRow, startCol});
+    st.push(startNode);
 
     while (!st.empty()) {
-        std::pair<int, int> u = st.top();
+        uint32_t u = st.top();
 
         bool moved = false;
 
-        for (Edge &e : g[u.first*width + u.second]) {
+        for (Edge &e : g[u]) {
             
             if (e.edgeCount > 0) {
-                std::pair<int, int> v = {e.adjacentRow, e.adjacentCol};
+                uint32_t v = e.adjacentNode;
 
                 // consume edge u -> v
                 e.edgeCount--;
 
                 // consume edge v -> u
-                for (Edge &rev : g[v.first*width + v.second]) {
-                    if ((rev.adjacentRow == u.first) && (rev.adjacentCol == u.second)) {
+                for (Edge &rev : g[v]) {
+                    if (rev.adjacentNode == u) {
                         rev.edgeCount--;
                         break;
                     }
@@ -955,7 +954,7 @@ performCPP (
     eulerizeGraph(final_binary_image, allEdges, cutoffClustering, height, width);
 
     // Perform Hierholzer's algorithm to find Eulerian Circuit
-    std::vector<std::pair<int, int>> fullCircuit = findEulerCircuit(allEdges, 0, 0, height, width);
+    std::vector<uint32_t> fullCircuit = findEulerCircuit(allEdges, 0, height, width);
 
     std::cout << "Number of steps total: " << fullCircuit.size() << "\n\n";
 }
