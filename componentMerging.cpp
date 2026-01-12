@@ -930,6 +930,7 @@ findEulerCircuit(
         }
     }
 
+    // NOTE:  I think going in forward/reverse traversal doesn't matter and this can be removed
     std::reverse(circuit.begin(), circuit.end());
 
     for (auto &adj : allEdges)
@@ -959,6 +960,13 @@ performCPP (
     std::vector<uint32_t> fullCircuit = findEulerCircuit(allEdges, 0, height, width);
 
     std::cout << "Number of steps total: " << fullCircuit.size() << "\n\n";
+
+    // for (int i = 0; i < fullCircuit.size(); ++i) {
+    //     std:: cout << fullCircuit[i] << ", ";
+    // }
+    // std::cout << "\n";
+
+    
 }
 
 
@@ -1040,7 +1048,7 @@ main(int argc, char **argv)
 
     // Finding reasonable shortest path to produce image
     // Solving for Chinese Postman Problem
-    performCPP(final_binary_image, output_steps, 4000, height, width);
+    performCPP(final_binary_image, output_steps, 10000, height, width);
 
     // Outputting final image to bmp file
     for (int i = 0; i < height * width; ++i) {
