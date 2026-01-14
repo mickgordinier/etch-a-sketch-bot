@@ -546,7 +546,6 @@ eulerizeGraph (
     connectClustersOnGraph(final_binary_image, allEdges, allNodesClustering, height, width);
 }
 
-
 struct StackEntry {
     uint32_t node;
     int prevDir; // -1 if none
@@ -560,6 +559,13 @@ findEulerCircuit(
 ) {
     ScopedTimer timer("Find Euler Circuit");
 
+    // Prioritize straigh lines, and de-prioritize reverse polarity
+    std::array<std::array<int, 4>, 4> dirPriority;
+    dirPriority[UP] = {UP, LEFT, RIGHT, DOWN};
+    dirPriority[DOWN] = {DOWN, LEFT, RIGHT, UP};
+    dirPriority[LEFT] = {LEFT, UP, DOWN, RIGHT};
+    dirPriority[RIGHT] = {RIGHT, UP, DOWN, LEFT};
+
     std::vector<uint32_t> circuit;
     std::stack<StackEntry> st;
 
@@ -569,23 +575,27 @@ findEulerCircuit(
         auto [u, prevDir] = st.top();
         bool moved = false;
 
-        // Try to continue straight if possible
+        // If we have a previous direction, use prioritized order
         if (prevDir != -1) {
-            uint32_t &edgeCount = allEdges[u][prevDir];
-            if (edgeCount > 0) {
-                uint32_t v = u + (adjacentNodes[prevDir][0] * width +
-                                  adjacentNodes[prevDir][1]);
+            for (int k = 0; k < 4; ++k) {
+                int d = dirPriority[prevDir][k];
+                uint32_t &edgeCount = allEdges[u][d];
 
-                --edgeCount;
-                --allEdges[v][prevDir ^ 0x1];
+                if (edgeCount > 0) {
+                    uint32_t v = u + (adjacentNodes[d][0] * width +
+                                      adjacentNodes[d][1]);
 
-                st.push({v, prevDir});
-                moved = true;
+                    --edgeCount;
+                    --allEdges[v][d ^ 0x1];
+
+                    st.push({v, d});
+                    moved = true;
+                    break;
+                }
             }
         }
-
-        // Otherwise, take ANY available direction
-        if (!moved) {
+        // No previous direction (start node) -> normal order
+        else {
             for (int d = 0; d < 4; ++d) {
                 uint32_t &edgeCount = allEdges[u][d];
                 if (edgeCount > 0) {

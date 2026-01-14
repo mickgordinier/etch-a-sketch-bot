@@ -16,10 +16,10 @@
 
 namespace fs = std::filesystem;
 
-#define LEFT   0  // Left  motor counterclockwise
-#define RIGHT  1  // Left  motor clockwise
-#define DOWN   2  // Right motor counterclockwise
-#define UP     3  // Right motor clockwise
+#define MOTOR_LEFT   0  // Left  motor counterclockwise
+#define MOTOR_RIGHT  1  // Left  motor clockwise
+#define MOTOR_DOWN   2  // Right motor counterclockwise
+#define MOTOR_UP     3  // Right motor clockwise
 
 const char* const DIRECTIONS[] = {
     "LEFT",
@@ -123,9 +123,9 @@ write_instructions(
         
         // Determine current step direction
         if (abs((int)steps[i] - (int)steps[i-1]) > 1) {
-            currDirection = (steps[i] > steps[i-1]) ? DOWN : UP;
+            currDirection = (steps[i] > steps[i-1]) ? MOTOR_DOWN : MOTOR_UP;
         } else {
-            currDirection = (steps[i] > steps[i-1]) ? RIGHT : LEFT;
+            currDirection = (steps[i] > steps[i-1]) ? MOTOR_RIGHT : MOTOR_LEFT;
         }
 
         if (currDirection == prevDirection) {

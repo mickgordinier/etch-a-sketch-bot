@@ -4,6 +4,10 @@
 #include <string>
 #include <cstdint>
 
+#define UP    0
+#define DOWN  1
+#define LEFT  2
+#define RIGHT 3
 const int adjacentNodes[4][2] = {{-1, 0}, {1, 0}, {0, -1}, {0, 1}};
 
 std::vector<uint8_t>
