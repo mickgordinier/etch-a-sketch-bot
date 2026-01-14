@@ -5,7 +5,8 @@ CXXFLAGS := -Wall -Wextra -Iinclude -Ithird_party
 # Directories
 SRC_DIR := src
 BUILD_DIR := build
-TARGET := my_program
+OUTPUT_DIR := output
+TARGET := my_program.out
 
 # Find all .cpp files in src/
 SRCS := $(wildcard $(SRC_DIR)/*.cpp)
@@ -28,7 +29,7 @@ $(BUILD_DIR):
 
 # Clean build artifacts
 clean:
-	rm -rf $(BUILD_DIR) $(TARGET)
+	rm -rf $(BUILD_DIR) $(OUTPUT_DIR) $(TARGET)
 
 # Phony targets
 .PHONY: all clean

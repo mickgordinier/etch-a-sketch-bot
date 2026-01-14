@@ -58,20 +58,21 @@ main(int argc, char **argv)
     ScopedTimer program_timer("TOTAL PROGRAM");
 
     int height, width;
-    std::string output_image, output_steps;
+    std::string output_image, human_filepath, binary_filepath;
 
     std::vector<uint8_t> binary_image;
 
-    // {executable}.out {height} {width} {output_image} {output_steps} {BASIC_PRINT} {EXTRA_PRINT}
-    if (argc == 7) {
+    // {executable}.out {height} {width} {output_image} {human_filepath} {binary_filepath} {BASIC_PRINT} {EXTRA_PRINT}
+    if (argc == 8) {
 
         height = std::stoi(argv[1]);
         width = std::stoi(argv[2]);
         output_image = argv[3];
-        output_steps = argv[4];
+        human_filepath = argv[4];
+        binary_filepath = argv[5];
 
-        BASIC_PRINT = std::stoi(argv[5]);
-        EXTRA_PRINT = std::stoi(argv[6]);
+        BASIC_PRINT = std::stoi(argv[6]);
+        EXTRA_PRINT = std::stoi(argv[7]);
         
         binary_image.resize(height * width);
 
@@ -88,8 +89,8 @@ main(int argc, char **argv)
         generateRandomImage(binary_image, height, width);
 
     } 
-    // {executable}.out {input_filepath} {output_filepath} {output_steps} {BASIC_PRINT} {EXTRA_PRINT}
-    else if (argc == 6) {
+    // {executable}.out {input_filepath} {output_filepath} {human_filepath} {binary_filepath} {BASIC_PRINT} {EXTRA_PRINT}
+    else if (argc == 7) {
 
         const char * input_filepath = argv[1];
 
@@ -98,9 +99,10 @@ main(int argc, char **argv)
         }
 
         output_image = argv[2];
-        output_steps = argv[3];
-        BASIC_PRINT = std::stoi(argv[4]);
-        EXTRA_PRINT = std::stoi(argv[5]);
+        human_filepath = argv[3];
+        binary_filepath= argv[4];
+        BASIC_PRINT = std::stoi(argv[5]);
+        EXTRA_PRINT = std::stoi(argv[6]);
 
     } else {
         std::cout << "Wrong arguments provided\n";
@@ -116,7 +118,7 @@ main(int argc, char **argv)
 
     if (BASIC_PRINT) print2DVector("FINAL IMAGE", final_binary_image, height, width);
 
-    if (write_bmp_image(output_image.c_str(), final_binary_image, height, width)) {
+    if (write_bmp_image(("output/" + output_image).c_str(), final_binary_image, height, width)) {
         return 1;
     }
 
@@ -126,6 +128,7 @@ main(int argc, char **argv)
 
     std::cout << "Number of steps total: " << steps.size() << "\n\n";
 
-    
+    write_instructions(steps, binary_filepath, human_filepath);
+
     return 0;
 }
