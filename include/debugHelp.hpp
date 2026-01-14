@@ -60,8 +60,8 @@ print2DVector(
     std::cout << image_name << "\n";
     std::cout << "-----------------------------------------------------------------------------------------------------------\n";
 
-    for (int row = 0; row < vec.size(); ++row) {
-        for (int col = 0; col < vec[0].size(); ++col) {
+    for (size_t row = 0; row < vec.size(); ++row) {
+        for (size_t col = 0; col < vec[0].size(); ++col) {
             std::cout << std::setw(3) << static_cast<int>(vec[row][col]) << " ";
         }
         std::cout << "\n";

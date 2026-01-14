@@ -7,12 +7,7 @@
 
 #include "../include/debugHelp.hpp"
 #include "../include/generatePath.hpp"
-
-#define STB_IMAGE_IMPLEMENTATION
-#include "../third_party/stb/stb_image.h"
-
-#define STB_IMAGE_WRITE_IMPLEMENTATION
-#include "../third_party/stb/stb_image_write.h"
+#include "../include/imageHandling.hpp"
 
 uint8_t EXTRA_PRINT = 1;
 uint8_t BASIC_PRINT = 1;
@@ -95,28 +90,16 @@ main(int argc, char **argv)
     // {executable}.out {input_filepath} {output_filepath} {output_steps} {BASIC_PRINT} {EXTRA_PRINT}
     else if (argc == 6) {
 
-        int channels;
         const char * input_filepath = argv[1];
+
+        if (read_bmp_image(input_filepath, binary_image, height, width)) {
+            return 1;
+        }
+
         output_image = argv[2];
         output_steps = argv[3];
         BASIC_PRINT = std::stoi(argv[4]);
         EXTRA_PRINT = std::stoi(argv[5]);
-
-        unsigned char* data = stbi_load(input_filepath, &width, &height, &channels, 1);
-        if (!data) {
-            std::cerr << "Failed to load image\n";
-            return 1;
-        }
-
-        binary_image.resize(height * width);
-
-        for (int y = 0; y < height; ++y) {
-            for (int x = 0; x < width; ++x) {
-                binary_image[y * width + x] = data[y * width + x] > 128 ? 0 : 1;
-            }
-        }
-
-        stbi_image_free(data);
 
     } else {
         std::cout << "Wrong arguments provided\n";
@@ -141,9 +124,7 @@ main(int argc, char **argv)
         final_binary_image[i] = (final_binary_image[i]) ? 0 : 255;
     }
 
-    // Writing to output filepath
-    if (!stbi_write_bmp(output_image.c_str(), width, height, 1, final_binary_image.data())) {
-        std::cerr << "Failed to write BMP\n";
+    if (write_bmp_image(output_image.c_str(), final_binary_image, height, width)) {
         return 1;
     }
 

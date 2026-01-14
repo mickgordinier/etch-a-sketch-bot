@@ -74,7 +74,7 @@ addPathToQueue(
     std::queue<QueueNode> &zeroDistanceQueue,
     int islandRow, int islandCol,
     int originalRow, int originalCol,
-    int height, int width
+    int width
 ) {
     // Making a simple shortest path from original node to island node
     int startRow, endRow, startCol, endCol;
@@ -147,11 +147,11 @@ connectAllComponents(
     while(true) {
 
         int distance = 0;
-        for (distance = 0; distance < nodeQueues.size(); ++distance) {
+        for (distance = 0; distance < (int)nodeQueues.size(); ++distance) {
             if (nodeQueues[distance].size() > 0) break;
         }
 
-        if (distance == nodeQueues.size()) return final_binary_image;
+        if (distance == (int)nodeQueues.size()) return final_binary_image;
 
         // Current node is either already connected or is not written to
         QueueNode nodeToCheck = nodeQueues[distance].front();
@@ -201,12 +201,12 @@ connectAllComponents(
                     if (EXTRA_PRINT) std::cout << "Starting location at: (" << currentRow << ", " << currentCol << ")\n\n";
                     addPathToQueue(final_binary_image, nodes_tracker, nodeQueues[0],
                                     adjacentRow, adjacentCol, currentRow, currentCol,
-                                    height, width);
+                                    width);
                 } else {
                     if (EXTRA_PRINT) std::cout << "Starting location at: (" << originalRow << ", " << originalCol << ")\n\n";
                     addPathToQueue(final_binary_image, nodes_tracker, nodeQueues[0],
                                     adjacentRow, adjacentCol, originalRow, originalCol,
-                                    height, width);
+                                    width);
                 }
 
                 if (EXTRA_PRINT) print2DVector("Fill Tracker Adding New Component+Path", nodes_tracker, height, width);
@@ -214,7 +214,7 @@ connectAllComponents(
             } else {
                 // Otherwise, just add blank space to expand
                 
-                if (nodeQueues.size() == adjacentDistance) {
+                if ((int)nodeQueues.size() == adjacentDistance) {
                     std::queue<QueueNode> emptyQueue;
                     nodeQueues.push_back(emptyQueue);
                 }
