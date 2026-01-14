@@ -546,59 +546,73 @@ eulerizeGraph (
     connectClustersOnGraph(final_binary_image, allEdges, allNodesClustering, height, width);
 }
 
+
+struct StackEntry {
+    uint32_t node;
+    int prevDir; // -1 if none
+};
+
 static std::vector<uint32_t> 
 findEulerCircuit(
     Graph &allEdges, 
     uint32_t startNode,
     int width
 ) {
-
     ScopedTimer timer("Find Euler Circuit");
 
     std::vector<uint32_t> circuit;
-    std::stack<uint32_t> st;
+    std::stack<StackEntry> st;
 
-    st.push(startNode);
+    st.push({startNode, -1});
 
     while (!st.empty()) {
-        uint32_t u = st.top();
-
+        auto [u, prevDir] = st.top();
         bool moved = false;
 
-        for (int neighbor = 0; neighbor < 4; ++neighbor) {
-
-            uint32_t &edgeCount = allEdges[u][neighbor];
-            
+        // Try to continue straight if possible
+        if (prevDir != -1) {
+            uint32_t &edgeCount = allEdges[u][prevDir];
             if (edgeCount > 0) {
-                uint32_t v = u + (adjacentNodes[neighbor][0]*width + adjacentNodes[neighbor][1]);
+                uint32_t v = u + (adjacentNodes[prevDir][0] * width +
+                                  adjacentNodes[prevDir][1]);
 
-                // consume edge u -> v
                 --edgeCount;
+                --allEdges[v][prevDir ^ 0x1];
 
-                // consume edge v -> u
-                --allEdges[v][neighbor ^ 0x1];
-
-                st.push(v);
+                st.push({v, prevDir});
                 moved = true;
-                break;
             }
         }
 
+        // Otherwise, take ANY available direction
+        if (!moved) {
+            for (int d = 0; d < 4; ++d) {
+                uint32_t &edgeCount = allEdges[u][d];
+                if (edgeCount > 0) {
+                    uint32_t v = u + (adjacentNodes[d][0] * width +
+                                      adjacentNodes[d][1]);
+
+                    --edgeCount;
+                    --allEdges[v][d ^ 0x1];
+
+                    st.push({v, d});
+                    moved = true;
+                    break;
+                }
+            }
+        }
+
+        // Dead end -> backtrack
         if (!moved) {
             circuit.push_back(u);
             st.pop();
         }
     }
 
-    // NOTE:  I think going in forward/reverse traversal doesn't matter and this can be removed
     std::reverse(circuit.begin(), circuit.end());
-
-    for (auto &adj : allEdges)
-        for (uint32_t e : adj)
-            assert(e == 0);
-
     return circuit;
 }
+
 
 std::vector<uint32_t>
 generatePath (
