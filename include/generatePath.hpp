@@ -12,10 +12,9 @@ connectAllComponents(
     int height, int width
 );
 
-void
-performCPP (
+std::vector<uint32_t>
+generatePath (
     const std::vector<uint8_t> &final_binary_image,
-    const std::string &output_steps,
     int cutoffClustering,
     int height, int width
 );

@@ -12,6 +12,7 @@
 uint8_t EXTRA_PRINT = 1;
 uint8_t BASIC_PRINT = 1;
 
+const int CLUSTER_CUTOFF = 10000;
 
 void
 generateRandomImage(
@@ -115,18 +116,16 @@ main(int argc, char **argv)
 
     if (BASIC_PRINT) print2DVector("FINAL IMAGE", final_binary_image, height, width);
 
-    // Finding reasonable shortest path to produce image
-    // Solving for Chinese Postman Problem
-    performCPP(final_binary_image, output_steps, 10000, height, width);
-
-    // Outputting final image to bmp file
-    for (int i = 0; i < height * width; ++i) {
-        final_binary_image[i] = (final_binary_image[i]) ? 0 : 255;
-    }
-
     if (write_bmp_image(output_image.c_str(), final_binary_image, height, width)) {
         return 1;
     }
 
+    // Finding reasonable shortest path to produce image
+    // Solving for Chinese Postman Problem
+    std::vector<uint32_t> steps = generatePath(final_binary_image, CLUSTER_CUTOFF, height, width);
+
+    std::cout << "Number of steps total: " << steps.size() << "\n\n";
+
+    
     return 0;
 }

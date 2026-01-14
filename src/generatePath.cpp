@@ -600,10 +600,9 @@ findEulerCircuit(
     return circuit;
 }
 
-void
-performCPP (
+std::vector<uint32_t>
+generatePath (
     const std::vector<uint8_t> &final_binary_image,
-    const std::string &output_steps,
     int cutoffClustering,
     int height, int width
 ) {
@@ -617,13 +616,5 @@ performCPP (
 
     // Perform Hierholzer's algorithm to find Eulerian Circuit
     std::vector<uint32_t> fullCircuit = findEulerCircuit(allEdges, 0, width);
-
-    std::cout << "Number of steps total: " << fullCircuit.size() << "\n\n";
-
-    // for (int i = 0; i < fullCircuit.size(); ++i) {
-    //     std:: cout << fullCircuit[i] << ", ";
-    // }
-    // std::cout << "\n";
-
-    
+    return fullCircuit;
 }

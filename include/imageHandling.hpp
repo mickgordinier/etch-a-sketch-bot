@@ -11,6 +11,6 @@ read_bmp_image(
 int
 write_bmp_image (
     const char * output_image_filepath, 
-    const std::vector<uint8_t> &binary_image,
+    std::vector<uint8_t> binary_image,
     int width, int height
 );

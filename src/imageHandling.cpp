@@ -41,9 +41,14 @@ read_bmp_image(
 int
 write_bmp_image (
     const char * output_image_filepath, 
-    const std::vector<uint8_t> &binary_image,
+    std::vector<uint8_t> binary_image,
     int height, int width
 ) {
+    // Outputting final image to bmp file
+    for (int i = 0; i < height * width; ++i) {
+        binary_image[i] = (binary_image[i]) ? 0 : 255;
+    }
+
     // Writing to output filepath
     if (!stbi_write_bmp(output_image_filepath, width, height, 1, binary_image.data())) {
         std::cerr << "Failed to write BMP\n";
