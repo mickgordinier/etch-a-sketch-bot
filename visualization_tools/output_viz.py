@@ -3,7 +3,7 @@ from matplotlib.widgets import Slider, Button
 import matplotlib.animation as animation
 
 # -------- Read commands from a txt file --------
-with open("output/output.txt", "r") as f:
+with open("output/output_cat.txt", "r") as f:
     commands = [line.strip() for line in f if line.strip() and line.strip() != "END OF INSTRUCTIONS"]
 
 # Convert commands into vectors
