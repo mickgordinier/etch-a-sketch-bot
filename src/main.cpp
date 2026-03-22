@@ -1,134 +1,88 @@
 #include <iostream>
 #include <vector>
-#include <random>
-#include <queue>
 #include <string>
 #include <cstdint>
 
+#include "../include/EtchASketch.h"
 #include "../include/debugHelp.hpp"
-#include "../include/generatePath.hpp"
-#include "../include/imageHandling.hpp"
-
-uint8_t EXTRA_PRINT = 1;
-uint8_t BASIC_PRINT = 1;
 
 const int CLUSTER_CUTOFF = 10000;
-
-void
-generateRandomImage(
-    std::vector<uint8_t> &binary_image,
-    int height, int width
-) {
-    ScopedTimer timer("Generate Random Image");
-
-    std::random_device rd;
-    std::mt19937 gen(rd());
-    std::bernoulli_distribution dist(0.2);  // density of 1's
-
-    for (int i = 0; i < height; ++i) {
-        for (int j = 0; j < width; ++j) {
-            binary_image[i*width + j] = dist(gen);
-        }
-    }
-}
-
-
-void
-placeBorderAroundImage(
-    std::vector<uint8_t> &binary_image,
-    int height, int width
-) {
-    ScopedTimer timer("Place Border Around Image");
-
-    for (int col = 0; col < width; ++col) {
-        binary_image[col] = 1;
-        binary_image[((height-1)*width) + col] = 1;
-    }
-
-    for (int row = 1; row < height-1; ++row) {
-        binary_image[row*width] = 1;
-        binary_image[(row*width) + (width-1)] = 1;
-    }
-}
-
 
 int 
 main(int argc, char **argv) 
 {
     ScopedTimer program_timer("TOTAL PROGRAM");
+    
+    // {executable}.out {height} {width} {output_image_filepath} {output_steps_filepath} {output_steps_binary_filepath}
+    if (argc == 6) {
 
-    int height, width;
-    std::string output_image, human_filepath, binary_filepath;
+        int const          height                       = std::stoi(argv[1]);
+        int const          width                        = std::stoi(argv[2]);
+        std::string const &output_image_filepath        = argv[3];
+        std::string const &output_steps_filepath        = argv[4];
+        std::string const &output_steps_binary_filepath = argv[5];
 
-    std::vector<uint8_t> binary_image;
-
-    // {executable}.out {height} {width} {output_image} {human_filepath} {binary_filepath} {BASIC_PRINT} {EXTRA_PRINT}
-    if (argc == 8) {
-
-        height = std::stoi(argv[1]);
-        width = std::stoi(argv[2]);
-        output_image = argv[3];
-        human_filepath = argv[4];
-        binary_filepath = argv[5];
-
-        BASIC_PRINT = std::stoi(argv[6]);
-        EXTRA_PRINT = std::stoi(argv[7]);
-        
-        binary_image.resize(height * width);
-
-        // binary_image = {
-        //     1,   0,   0,   0,   0,   1,   0, 
-        //     0,   1,   1,   1,   0,   0,   0, 
-        //     0,   1,   0,   0,   0,   0,   0, 
-        //     0,   0,   0,   0,   0,   0,   0, 
-        //     0,   0,   0,   0,   0,   0,   0, 
-        //     1,   1,   0,   1,   1,   0,   0, 
-        //     0,   1,   0,   0,   0,   0,   0
-        // };
-        
-        generateRandomImage(binary_image, height, width);
+        EtchASketch etchASketch(
+            height, 
+            width, 
+            CLUSTER_CUTOFF, 
+            output_image_filepath, 
+            output_steps_filepath, 
+            output_steps_binary_filepath
+        );
 
     } 
-    // {executable}.out {input_filepath} {output_filepath} {human_filepath} {binary_filepath} {BASIC_PRINT} {EXTRA_PRINT}
-    else if (argc == 7) {
+    // {executable}.out {input_filepath} {output_filepath} {output_steps_filepath} {output_steps_binary_filepath}
+    else if (argc == 5) {
 
-        const char * input_filepath = argv[1];
+        std::string const &input_image_filepath         = argv[1];
+        std::string const &output_image_filepath        = argv[2];
+        std::string const &output_steps_filepath        = argv[3];
+        std::string const &output_steps_binary_filepath = argv[4];
 
-        if (read_bmp_image(input_filepath, binary_image, height, width)) {
-            return 1;
-        }
+        EtchASketch etchASketch(
+            input_image_filepath,
+            CLUSTER_CUTOFF, 
+            output_image_filepath, 
+            output_steps_filepath, 
+            output_steps_binary_filepath
+        );
 
-        output_image = argv[2];
-        human_filepath = argv[3];
-        binary_filepath= argv[4];
-        BASIC_PRINT = std::stoi(argv[5]);
-        EXTRA_PRINT = std::stoi(argv[6]);
+    } 
+    // {executable}.out {output_filepath} {output_steps_filepath} {output_steps_binary_filepath}
+    else if (argc == 4) {
 
+        std::string const &output_image_filepath        = argv[1];
+        std::string const &output_steps_filepath        = argv[2];
+        std::string const &output_steps_binary_filepath = argv[3];
+
+        const int height = 7;
+        const int width  = 7;
+
+        const std::vector<uint8_t> input_image = {
+            1,   0,   0,   0,   0,   1,   0, 
+            0,   1,   1,   1,   0,   0,   0, 
+            0,   1,   0,   0,   0,   0,   0, 
+            0,   0,   0,   0,   0,   0,   0, 
+            0,   0,   0,   0,   0,   0,   0, 
+            1,   1,   0,   1,   1,   0,   0, 
+            0,   1,   0,   0,   0,   0,   0
+        };
+
+        EtchASketch etchASketch(
+            input_image,
+            height, 
+            width,
+            CLUSTER_CUTOFF, 
+            output_image_filepath, 
+            output_steps_filepath, 
+            output_steps_binary_filepath
+        );
+        
     } else {
         std::cout << "Wrong arguments provided\n";
         return 1;
     }
-
-    placeBorderAroundImage(binary_image, height, width);
-    // binary_image[0] = 1;
-    
-    if (BASIC_PRINT) print2DVector("ORIGINAL IMAGE", binary_image, height, width);
-    
-    std::vector<uint8_t> final_binary_image = connectAllComponents(binary_image, height, width);
-
-    if (BASIC_PRINT) print2DVector("FINAL IMAGE", final_binary_image, height, width);
-
-    if (write_bmp_image(("output/" + output_image).c_str(), final_binary_image, height, width)) {
-        return 1;
-    }
-
-    // Finding reasonable shortest path to produce image
-    // Solving for Chinese Postman Problem
-    std::vector<uint32_t> steps = generatePath(final_binary_image, CLUSTER_CUTOFF, height, width);
-
-    std::cout << "Number of steps total: " << steps.size() << "\n\n";
-
-    write_instructions(steps, binary_filepath, human_filepath);
 
     return 0;
 }

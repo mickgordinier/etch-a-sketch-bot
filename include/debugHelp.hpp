@@ -6,9 +6,6 @@
 #include <iostream>
 #include <iomanip>
 
-extern uint8_t EXTRA_PRINT;
-extern uint8_t BASIC_PRINT;
-
 struct ScopedTimer {
     std::string name;
     std::chrono::high_resolution_clock::time_point start;

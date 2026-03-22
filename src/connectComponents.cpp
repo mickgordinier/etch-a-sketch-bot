@@ -141,7 +141,9 @@ connectAllComponents(
     // Adding the entire component found at location (0, 0) to the globalSavedQueue
     addComponentToQueue(original_binary_image, nodes_tracker, nodeQueues[0], 0, 0, height, width);
 
-    if (EXTRA_PRINT) print2DVector("Fill Tracker Adding Border Component", nodes_tracker, height, width);
+    #ifdef EXTRA_PRINT 
+        print2DVector("Fill Tracker Adding Border Component", nodes_tracker, height, width);
+    #endif
 
     // Perform an exhaustive BFS to find the next nearest island component to connect to the final component
     while(true) {
@@ -183,33 +185,39 @@ connectAllComponents(
             // New island component found
             if (original_binary_image[(adjacentRow*width) + adjacentCol]) {
 
-                if (EXTRA_PRINT) {
+                #ifdef EXTRA_PRINT
                     print2DVector("Round Tracked Locations Before Finding New Component", nodes_tracker, height, width);
                     std::cout << "New island component found at: (" << adjacentRow << ", " << adjacentCol << ")\n\n";
-                }
+                #endif
 
                 // Add the entire component found at given location to the globalSavedQueue
                 addComponentToQueue(original_binary_image, nodes_tracker, nodeQueues[0], adjacentRow, adjacentCol, height, width);
                 
-                if (EXTRA_PRINT) {
+                #ifdef EXTRA_PRINT
                     print2DVector("Fill Tracker Adding New Component", nodes_tracker, height, width);
-                }
+                #endif
                 
                 // Add a path the connects the island component
                 if (adjacentDistance == 1) {
                     // This can happen is we add new path pixels that are adjacent to islands
-                    if (EXTRA_PRINT) std::cout << "Starting location at: (" << currentRow << ", " << currentCol << ")\n\n";
+                    #ifdef EXTRA_PRINT
+                        std::cout << "Starting location at: (" << currentRow << ", " << currentCol << ")\n\n";
+                    #endif
                     addPathToQueue(final_binary_image, nodes_tracker, nodeQueues[0],
                                     adjacentRow, adjacentCol, currentRow, currentCol,
                                     width);
                 } else {
-                    if (EXTRA_PRINT) std::cout << "Starting location at: (" << originalRow << ", " << originalCol << ")\n\n";
+                    #ifdef EXTRA_PRINT
+                        std::cout << "Starting location at: (" << originalRow << ", " << originalCol << ")\n\n";
+                    #endif
                     addPathToQueue(final_binary_image, nodes_tracker, nodeQueues[0],
                                     adjacentRow, adjacentCol, originalRow, originalCol,
                                     width);
                 }
 
-                if (EXTRA_PRINT) print2DVector("Fill Tracker Adding New Component+Path", nodes_tracker, height, width);
+                #ifdef EXTRA_PRINT
+                    print2DVector("Fill Tracker Adding New Component+Path", nodes_tracker, height, width);
+                #endif
 
             } else {
                 // Otherwise, just add blank space to expand

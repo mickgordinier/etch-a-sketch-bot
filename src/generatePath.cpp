@@ -216,7 +216,7 @@ findOddPairings (
         }
     }
 
-    if (EXTRA_PRINT) {
+    #ifdef EXTRA_PRINT
         std::cout << "Odd Vertex Pairings AFTER GREEDY (Distance):\n";
 
         int totalDistance = 0;
@@ -229,7 +229,7 @@ findOddPairings (
             totalDistance += distanceMatrix[oddPairings[i].first][oddPairings[i].second];
         }
         std::cout << "Total Added Distance: " << totalDistance << "\n\n";
-    }
+    #endif
 
     uint8_t hasImproved = 1;
 
@@ -320,7 +320,9 @@ updateGraphWithShortestPath(
     
     visitTracker[node1] = visitId;
 
-    if (EXTRA_PRINT) std::cout << "(" << node2/width << ", " << node2%width << ") --> ";
+    #ifdef EXTRA_PRINT
+        std::cout << "(" << node2/width << ", " << node2%width << ") --> ";
+    #endif
 
     while(true) {
         uint32_t currentNode = q.front();
@@ -357,7 +359,9 @@ updateGraphWithShortestPath(
                     uint8_t prevNeighbor = prevNodes[currentNode];
                     uint32_t prevNode = currentNode - (adjacentNodes[prevNeighbor][0]*width + adjacentNodes[prevNeighbor][1]);
 
-                    if (EXTRA_PRINT) std::cout << "(" << prevNode/width << ", " << prevNode%width << ") --> ";
+                    #ifdef EXTRA_PRINT
+                        std::cout << "(" << prevNode/width << ", " << prevNode%width << ") --> ";
+                    #endif
 
                     // 0 <-> 1  and 2 <-> 3 (Must flip 0 bit through XOR)
                     ++allEdges[prevNode][prevNeighbor];
@@ -387,8 +391,9 @@ updateAllShortestPaths(
 ) {
     // ScopedTimer timer("updateAllShortestPaths on cluster index: " + std::to_string(clusterIdx));;
 
-    if (EXTRA_PRINT) std::cout << "Odd Vertex Pairings (Distance):\n";
-    // int totalDistance = 0;
+    #ifdef EXTRA_PRINT 
+        std::cout << "Odd Vertex Pairings (Distance):\n";
+    #endif
 
     std::vector<uint8_t> prevNodes(height * width);
     
@@ -403,13 +408,7 @@ updateAllShortestPaths(
             height, width
         );
         ++visitId;
-
-        // if (EXTRA_PRINT) std::cout << "   Distance: " << distanceMatrix[pair.first][pair.second] << "\n";
-        
-        // totalDistance += distanceMatrix[pair.first][pair.second];
     }
-
-    // if (BASIC_PRINT) std::cout << "Total Added Distance: " << totalDistance << "\n\n";
 }
 
 static void
@@ -422,11 +421,15 @@ performBfsClusteringAndEulerize(
 ) {
     // ScopedTimer timer("performBfsClusteringAndEulerize on cluster index: " + std::to_string(clusterIdx));
 
-    if (EXTRA_PRINT) std::cout << "Performing Clustering for cluster index: " << clusterIdx << "\n\n";
+    #ifdef EXTRA_PRINT
+        std::cout << "Performing Clustering for cluster index: " << clusterIdx << "\n\n";
+    #endif
 
     performBfsClustering(final_binary_image, allNodesClustering, startRow, startCol, clusterIdx, height, width, cutoffClustering);
 
-    if (EXTRA_PRINT) print2DVector("All Nodes Clustering After New Cluster", allNodesClustering, height, width);
+    #ifdef EXTRA_PRINT
+        print2DVector("All Nodes Clustering After New Cluster", allNodesClustering, height, width);
+    #endif
 
     std::vector<uint32_t> verticesCheck(height * width); 
     uint32_t visitIdx = 1;
@@ -434,14 +437,14 @@ performBfsClusteringAndEulerize(
     std::vector<uint32_t> oddVerticesList = getClusterOddVerticies(allNodesClustering, verticesCheck, visitIdx, startRow, startCol, clusterIdx, height, width);
     ++visitIdx;
 
-    if (EXTRA_PRINT) {
+    #ifdef EXTRA_PRINT
         std::cout << "Odd Vertex Locations:\n";
         
         for (size_t i = 0; i < oddVerticesList.size(); ++i) {
             std::cout << "(" << oddVerticesList[i]/width << ", " << oddVerticesList[i]%width << "), ";
         }
         std::cout << "\n\n";
-    }
+    #endif
 
     // Produce distance matrix for all odd vertices
     std::vector<std::vector<int>> distanceMatrix = getDistanceMatrix(
@@ -449,7 +452,9 @@ performBfsClusteringAndEulerize(
         verticesCheck, visitIdx,
         clusterIdx, height, width);
 
-    if (EXTRA_PRINT) print2DVector("Distance Matrix", distanceMatrix);
+    #ifdef EXTRA_PRINT
+        print2DVector("Distance Matrix", distanceMatrix);
+    #endif
 
     // Perform Greedy + 2-opt to find near-best odd pairing
     std::vector<std::pair<int, int>> oddPairings = findOddPairings(oddVerticesList, distanceMatrix, width);
@@ -491,7 +496,9 @@ generateAndEulerizeClusters (
         }
     }
 
-    if (BASIC_PRINT) std::cout << "TOTAL PIXEL COUNT: " << totalPixels << "\n\n";
+    #ifdef BASIC_PRINT
+        std::cout << "TOTAL PIXEL COUNT: " << totalPixels << "\n\n";
+    #endif
 }
 
 
