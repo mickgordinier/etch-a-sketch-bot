@@ -13,48 +13,38 @@ main(int argc, char **argv)
 {
     ScopedTimer program_timer("TOTAL PROGRAM");
     
-    // {executable}.out {height} {width} {output_image_filepath} {output_steps_filepath} {output_steps_binary_filepath}
-    if (argc == 6) {
+    // {executable}.out {height} {width} {output_foldername}
+    if (argc == 4) {
 
         int const          height                       = std::stoi(argv[1]);
         int const          width                        = std::stoi(argv[2]);
-        std::string const &output_image_filepath        = argv[3];
-        std::string const &output_steps_filepath        = argv[4];
-        std::string const &output_steps_binary_filepath = argv[5];
+        std::string const &output_foldername            = argv[3];
 
         EtchASketch etchASketch(
             height, 
             width, 
             CLUSTER_CUTOFF, 
-            output_image_filepath, 
-            output_steps_filepath, 
-            output_steps_binary_filepath
+            output_foldername
         );
 
     } 
-    // {executable}.out {input_filepath} {output_filepath} {output_steps_filepath} {output_steps_binary_filepath}
-    else if (argc == 5) {
+    // {executable}.out {input_filepath} {output_foldername}
+    else if (argc == 3) {
 
         std::string const &input_image_filepath         = argv[1];
-        std::string const &output_image_filepath        = argv[2];
-        std::string const &output_steps_filepath        = argv[3];
-        std::string const &output_steps_binary_filepath = argv[4];
+        std::string const &output_foldername            = argv[2];
 
         EtchASketch etchASketch(
             input_image_filepath,
             CLUSTER_CUTOFF, 
-            output_image_filepath, 
-            output_steps_filepath, 
-            output_steps_binary_filepath
+            output_foldername
         );
 
     } 
-    // {executable}.out {output_filepath} {output_steps_filepath} {output_steps_binary_filepath}
-    else if (argc == 4) {
+    // {executable}.out {output_foldername}
+    else if (argc == 2) {
 
-        std::string const &output_image_filepath        = argv[1];
-        std::string const &output_steps_filepath        = argv[2];
-        std::string const &output_steps_binary_filepath = argv[3];
+        std::string const &output_foldername            = argv[1];
 
         const int height = 7;
         const int width  = 7;
@@ -74,9 +64,7 @@ main(int argc, char **argv)
             height, 
             width,
             CLUSTER_CUTOFF, 
-            output_image_filepath, 
-            output_steps_filepath, 
-            output_steps_binary_filepath
+            output_foldername
         );
         
     } else {

@@ -58,24 +58,17 @@ read_bmp_image(
 
 int
 write_bmp_image (
-    const char * output_image_filepath, 
+    const std::string &output_image_filepath, 
     std::vector<uint8_t> binary_image,
     int height, int width
 ) {
-
-    fs::path dir = "output/";
-
-    if (!fs::exists(dir)) {
-        fs::create_directories(dir); // creates parents if needed
-    }
-
     // Outputting final image to bmp file
     for (int i = 0; i < height * width; ++i) {
         binary_image[i] = (binary_image[i]) ? 0 : 255;
     }
 
     // Writing to output filepath
-    if (!stbi_write_bmp(output_image_filepath, width, height, 1, binary_image.data())) {
+    if (!stbi_write_bmp(output_image_filepath.c_str(), width, height, 1, binary_image.data())) {
         std::cerr << "Failed to write BMP\n";
         return 1;
     }   
@@ -102,11 +95,11 @@ write_instructions(
 ) {
     // Creating both human readable file
 
-    std::ofstream humanFile("output/" + output_human_steps_filepath);
-    std::ofstream binaryFile("output/" + output_binary_steps_filepath);
+    std::ofstream humanFile(output_human_steps_filepath);
+    std::ofstream binaryFile(output_binary_steps_filepath);
 
     if (!humanFile.is_open()) {
-        std::cerr << "Unable to open human text file";
+        std::cerr << "Unable to open human text file\n";
         return;
     }
 

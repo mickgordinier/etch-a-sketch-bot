@@ -10,9 +10,7 @@ public:
     EtchASketch (
         std::string const &input_image_filepath_,
         int                cluster_cutoff_,
-        std::string const &output_image_filepath_,
-        std::string const &output_steps_filepath_,
-        std::string const &output_steps_binary_filepath_,
+        std::string const &output_foldername_,
         bool               place_border_around_image_ = true
     );
 
@@ -21,9 +19,7 @@ public:
         int                height, 
         int                width, 
         int                cluster_cutoff_,
-        std::string const &output_image_filepath_,
-        std::string const &output_steps_filepath_,
-        std::string const &output_steps_binary_filepath_,
+        std::string const &output_foldername_,
         bool               place_border_around_image_ = true
     );
 
@@ -33,20 +29,13 @@ public:
         int                         height_, 
         int                         width_,
         int                         cluster_cutoff_,
-        std::string const          &output_image_filepath_,
-        std::string const          &output_steps_filepath_,
-        std::string const          &output_steps_binary_filepath_,
+        std::string const          &output_foldername_,
         bool                        place_border_around_image_ = true
     );
 
 
 private:
     void generateRandomImage();
-    void initOutputFilepaths(
-        std::string const &output_image_filepath_,
-        std::string const &output_steps_filepath_,
-        std::string const &output_steps_binary_filepath_
-    );
     void performFullProcess();
     void placeBorderAroundImage();
 
@@ -55,7 +44,5 @@ private:
     bool                 place_border_around_image;
     int                  cluster_cutoff;
 
-    std::string          output_image_filepath;
-    std::string          output_steps_filepath;
-    std::string          output_steps_binary_filepath;
+    std::string          output_foldername;
 };
