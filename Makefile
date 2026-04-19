@@ -1,6 +1,7 @@
 # Compiler and flags
 CXX := g++
 CXXFLAGS := -Wall -Wextra -Iinclude -Ithird_party
+CPPFLAGS :=
 
 # Directories
 SRC_DIR := src
@@ -17,11 +18,11 @@ all: $(TARGET)
 
 # Link object files into executable
 $(TARGET): $(OBJS)
-	$(CXX) $(CXXFLAGS) -o $@ $^
+	$(CXX) $(CXXFLAGS) $(CPPFLAGS) -o $@ $^
 
 # Compile .cpp into .o
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.cpp | $(BUILD_DIR)
-	$(CXX) $(CXXFLAGS) -c $< -o $@
+	$(CXX) $(CXXFLAGS) $(CPPFLAGS) -c $< -o $@
 
 # Create build directory if it doesn't exist
 $(BUILD_DIR):

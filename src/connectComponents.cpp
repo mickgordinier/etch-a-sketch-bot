@@ -6,38 +6,47 @@
 #include "../include/debugHelp.hpp"
 #include "../include/generatePath.hpp"
 
-
 struct QueueNode {
     std::pair<int, int> currentNode;
     std::pair<int, int> originalNode;
 };
 
-
+// Will only return true if
+// i. Location is valid
+// ii. The pixel exist at location
+// iii. The pixel is not yet added to the zero distance queue
 static bool inline
-checkNode(
+doesPixelExist(
     const std::vector<uint8_t> &binary_image, 
-    const std::vector<int> &nodes_tracker,
-    int nodeRow, int nodeCol,
-    int height, int width
+    const std::vector<int>     &nodes_tracker,
+    int                         nodeRow, 
+    int                         nodeCol,
+    int                         height, 
+    int                         width
 ) {
     if ((nodeRow < 0) || (nodeCol < 0) || (nodeRow >= height) || (nodeCol >= width)) return false;;
     if (!binary_image[(nodeRow*width) + nodeCol]) return false;
     return (nodes_tracker[(nodeRow*width) + nodeCol] == -1);
 }
 
-
+// Adding all pixels in individual component to the nodes_tracker and zero_distance_queue
 static void
 addComponentToQueue(
     const std::vector<uint8_t> &binary_image,
-    std::vector<int> &nodes_tracker,
-    std::queue<QueueNode> &zeroDistanceQueue,
-    int start_row, int start_col,
-    int height, int width
+    std::vector<int>           &nodes_tracker,
+    std::queue<QueueNode>      &zero_distance_queue,
+    int                         start_row, 
+    int                         start_col,
+    int                         height, 
+    int                         width
 ) {
 
-    zeroDistanceQueue.push({{start_row, start_col}, {-1, -1}});
+    // All identified components will have pixels that don't point back to anything
+    // Additionally node_tracker will indicate the distance is 0 for each pixel
+    zero_distance_queue.push({{start_row, start_col}, {-1, -1}});
     nodes_tracker[(start_row*width) + start_col] = 0;
 
+    // Performing DFS to look for all pixels in component
     std::queue<std::pair<int, int>> nodesToCheck;
     nodesToCheck.push({start_row, start_col});
 
@@ -55,10 +64,12 @@ addComponentToQueue(
             int adjacentRow = nodeRow + adjacentNodes[neighbor][0];
             int adjacentCol = nodeCol + adjacentNodes[neighbor][1];
 
-            if (!checkNode(binary_image, nodes_tracker, adjacentRow, adjacentCol, height, width)) 
+            if (!doesPixelExist(binary_image, nodes_tracker, adjacentRow, adjacentCol, height, width)) 
                 continue;
 
-            zeroDistanceQueue.push({{adjacentRow, adjacentCol}, {-1, -1}});
+            // All identified components will have pixels that don't point back to anything
+            // Additionally node_tracker will indicate the distance is 0 for each pixel
+            zero_distance_queue.push({{adjacentRow, adjacentCol}, {-1, -1}});
             nodes_tracker[(adjacentRow*width) + adjacentCol] = 0;
             
             nodesToCheck.push({adjacentRow, adjacentCol});
@@ -71,7 +82,7 @@ static void
 addPathToQueue(
     std::vector<uint8_t> &binary_image,
     std::vector<int> &nodes_tracker,
-    std::queue<QueueNode> &zeroDistanceQueue,
+    std::queue<QueueNode> &zero_distance_queue,
     int islandRow, int islandCol,
     int originalRow, int originalCol,
     int width
@@ -98,7 +109,7 @@ addPathToQueue(
 
             binary_image[(rowToAdd*width) + startCol] = 1;
             nodes_tracker[(rowToAdd*width) + startCol] = 0;
-            zeroDistanceQueue.push({{rowToAdd, startCol}, {-1, -1}});
+            zero_distance_queue.push({{rowToAdd, startCol}, {-1, -1}});
         }
         return;
     }
@@ -117,7 +128,7 @@ addPathToQueue(
 
             binary_image[(rowToAdd*width) + col] = 1;
             nodes_tracker[(rowToAdd*width) + col] = 0;
-            zeroDistanceQueue.push({{rowToAdd, col}, {-1, -1}});
+            zero_distance_queue.push({{rowToAdd, col}, {-1, -1}});
         }
 
         currentRow = trueRow;
@@ -125,6 +136,9 @@ addPathToQueue(
 }
 
 
+// Performing an exhaustive BFS to search through all pixels to ensure they have at least 1 adjacent neighbor
+// Doing a BFS helps ensure additional pixels required stays at a minimum
+// NOTE: Requires that original_binary_image[0] == 1
 std::vector<uint8_t>
 connectAllComponents(
     const std::vector<uint8_t> &original_binary_image,
@@ -132,14 +146,24 @@ connectAllComponents(
 ) {
     ScopedTimer timer("Connect all components");
 
+    if (original_binary_image[0] != 1) {
+        throw std::runtime_error("connectAllComponents: original_binary_image[0][0] != 1");
+    }
+
+    // Will be adding pixels/paths to connect components
+    // Do not want to modify original_binary_image
     std::vector<uint8_t> final_binary_image = original_binary_image;
 
-    std::vector<std::queue<QueueNode>> nodeQueues(1);
+    // Tracker for each BFS iteration
+    // Each connected component pixel considered to be at distance 0
+    // As doing BFS, will be placing outside expanding pixels one beyond
+    // Indicating that there exist pixels with at least a distance of 0
+    std::vector<std::queue<QueueNode>> node_queues(1);
 
     std::vector<int> nodes_tracker(height * width, -1);
 
-    // Adding the entire component found at location (0, 0) to the globalSavedQueue
-    addComponentToQueue(original_binary_image, nodes_tracker, nodeQueues[0], 0, 0, height, width);
+    // Adding the entire component found at location (0, 0) to the nodes_tracker and node_queues[0]
+    addComponentToQueue(original_binary_image, nodes_tracker, node_queues[0], 0, 0, height, width);
 
     #ifdef EXTRA_PRINT 
         print2DVector("Fill Tracker Adding Border Component", nodes_tracker, height, width);
@@ -148,16 +172,18 @@ connectAllComponents(
     // Perform an exhaustive BFS to find the next nearest island component to connect to the final component
     while(true) {
 
+        // Looking for queue of smallest unvisited distance
         int distance = 0;
-        for (distance = 0; distance < (int)nodeQueues.size(); ++distance) {
-            if (nodeQueues[distance].size() > 0) break;
+        for (distance = 0; distance < (int)node_queues.size(); ++distance) {
+            if (!node_queues[distance].empty()) break;
         }
 
-        if (distance == (int)nodeQueues.size()) return final_binary_image;
+        // We have gone through all pixels and have connected all components
+        if (distance == (int)node_queues.size()) return final_binary_image;
 
         // Current node is either already connected or is not written to
-        QueueNode nodeToCheck = nodeQueues[distance].front();
-        nodeQueues[distance].pop();
+        QueueNode nodeToCheck = node_queues[distance].front();
+        node_queues[distance].pop();
 
         int currentRow = nodeToCheck.currentNode.first;
         int currentCol = nodeToCheck.currentNode.second;
@@ -172,18 +198,20 @@ connectAllComponents(
 
         // Check the neighbors
         for (int neighbor = 0; neighbor < 4; ++neighbor) {
-        
-            int adjacentRow = currentRow + adjacentNodes[neighbor][0];
-            int adjacentCol = currentCol + adjacentNodes[neighbor][1];
+
+            const int adjacentRow = currentRow + adjacentNodes[neighbor][0];
+            const int adjacentCol = currentCol + adjacentNodes[neighbor][1];
 
             if ((adjacentRow < 0) || (adjacentCol < 0) || (adjacentRow >= height) || (adjacentCol >= width)) continue;
 
+            const int idx = (adjacentRow*width) + adjacentCol;
+
             // If it is already being visited by someone closer, ignore
-            int node_track_val = nodes_tracker[(adjacentRow*width) + adjacentCol];
+            const int node_track_val = nodes_tracker[idx];
             if ((node_track_val <= adjacentDistance) && (node_track_val != -1)) continue;
         
             // New island component found
-            if (original_binary_image[(adjacentRow*width) + adjacentCol]) {
+            if (original_binary_image[idx]) {
 
                 #ifdef EXTRA_PRINT
                     print2DVector("Round Tracked Locations Before Finding New Component", nodes_tracker, height, width);
@@ -191,7 +219,7 @@ connectAllComponents(
                 #endif
 
                 // Add the entire component found at given location to the globalSavedQueue
-                addComponentToQueue(original_binary_image, nodes_tracker, nodeQueues[0], adjacentRow, adjacentCol, height, width);
+                addComponentToQueue(original_binary_image, nodes_tracker, node_queues[0], adjacentRow, adjacentCol, height, width);
                 
                 #ifdef EXTRA_PRINT
                     print2DVector("Fill Tracker Adding New Component", nodes_tracker, height, width);
@@ -203,14 +231,14 @@ connectAllComponents(
                     #ifdef EXTRA_PRINT
                         std::cout << "Starting location at: (" << currentRow << ", " << currentCol << ")\n\n";
                     #endif
-                    addPathToQueue(final_binary_image, nodes_tracker, nodeQueues[0],
+                    addPathToQueue(final_binary_image, nodes_tracker, node_queues[0],
                                     adjacentRow, adjacentCol, currentRow, currentCol,
                                     width);
                 } else {
                     #ifdef EXTRA_PRINT
                         std::cout << "Starting location at: (" << originalRow << ", " << originalCol << ")\n\n";
                     #endif
-                    addPathToQueue(final_binary_image, nodes_tracker, nodeQueues[0],
+                    addPathToQueue(final_binary_image, nodes_tracker, node_queues[0],
                                     adjacentRow, adjacentCol, originalRow, originalCol,
                                     width);
                 }
@@ -222,15 +250,15 @@ connectAllComponents(
             } else {
                 // Otherwise, just add blank space to expand
                 
-                if ((int)nodeQueues.size() == adjacentDistance) {
+                if ((int)node_queues.size() == adjacentDistance) {
                     std::queue<QueueNode> emptyQueue;
-                    nodeQueues.push_back(emptyQueue);
+                    node_queues.push_back(emptyQueue);
                 }
 
                 if (adjacentDistance == 1) {
-                    nodeQueues[adjacentDistance].push({{adjacentRow, adjacentCol}, {currentRow, currentCol}});
+                    node_queues[adjacentDistance].push({{adjacentRow, adjacentCol}, {currentRow, currentCol}});
                 } else {
-                    nodeQueues[adjacentDistance].push({{adjacentRow, adjacentCol}, {originalRow, originalCol}});
+                    node_queues[adjacentDistance].push({{adjacentRow, adjacentCol}, {originalRow, originalCol}});
                 }
                 
                 nodes_tracker[(adjacentRow*width) + adjacentCol] = adjacentDistance;
